@@ -203,6 +203,7 @@
 
   /* ── Section heading in content ── */
   .section-note{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.6; padding:0 2px}
+  .section-note code{font-family:monospace; font-size:11px; background:var(--panel2); padding:1px 5px; border-radius:4px; color:var(--paper)}
 
   /* ── Directory tab ── */
   .dir-search{
@@ -297,7 +298,18 @@
 
 <script>
 "use strict";
-const CONFIG = { API_URL: "https://script.google.com/macros/s/AKfycbwcyEGKlsGLzG_HC8quz8vsTfMwqwJxhJ2ARQadAFl7KvZz8yAYzn-j0t1qhd66mV5g7A/exec" };
+const CONFIG = {
+  API_URL: "https://script.google.com/macros/s/AKfycbwcyEGKlsGLzG_HC8quz8vsTfMwqwJxhJ2ARQadAFl7KvZz8yAYzn-j0t1qhd66mV5g7A/exec",
+
+  // Optional: hard-code agent emails here so you don't need to touch the spreadsheet.
+  // Format: { "EMPLOYEE_ID": "email@example.com", ... }
+  // If an ID is listed here AND in the Employees sheet col D, this value wins.
+  // Leave as {} to use the sheet exclusively.
+  AGENT_EMAILS: {
+    // "EMP01": "juan@example.com",
+    // "EMP02": "maria@example.com",
+  }
+};
 
 const root = document.getElementById("root");
 let pin = sessionStorage.getItem("tt_pin") || "";
@@ -616,7 +628,17 @@ function renderStats(data){
 async function getEmployeesList(){
   if (employeesCache) return employeesCache;
   const r = await fetch(CONFIG.API_URL + "?action=employees").then(x=>x.json());
-  employeesCache = r.ok ? r.employees : [];
+  let list = r.ok ? r.employees : [];
+  // Merge CONFIG.AGENT_EMAILS: overrides the sheet's email for matching IDs,
+  // and adds an email for any agent not yet in the sheet's col D.
+  const overrides = CONFIG.AGENT_EMAILS || {};
+  if (Object.keys(overrides).length){
+    list = list.map(e => ({
+      ...e,
+      email: overrides[e.id] !== undefined ? overrides[e.id] : (e.email || "")
+    }));
+  }
+  employeesCache = list;
   return employeesCache;
 }
 async function renderFix(){
@@ -805,7 +827,7 @@ async function renderDirectory(){
     </div>
     <div class="dir-section-label">${active.length} active agent${active.length !== 1 ? "s" : ""}</div>
     <div class="dir-cards" id="dirCards">${cards}</div>
-    <p class="section-note">Add agent email addresses in column D of the <b>Employees</b> sheet to enable email delivery.</p>`;
+    <p class="section-note">Agent emails can be set two ways: in column D of the <b>Employees</b> sheet, or in <code>CONFIG.AGENT_EMAILS</code> at the top of this file. The HTML config takes priority.</p>`;
 
   const searchEl = document.getElementById("dirSearch");
   if (searchEl){
@@ -836,7 +858,10 @@ async function emailAllAgents(baseUrl){
   try {
     const res = await fetch(CONFIG.API_URL, {
       method: "POST", headers: {"Content-Type":"text/plain;charset=utf-8"},
-      body: JSON.stringify({ action:"emailAgents", pin, baseUrl, includePin })
+      body: JSON.stringify({
+        action:"emailAgents", pin, baseUrl, includePin,
+        emailOverrides: CONFIG.AGENT_EMAILS || {}
+      })
     }).then(x => x.json());
     showEmailResult(resultEl, res);
   } catch(e) {
@@ -858,7 +883,10 @@ async function emailSingleAgent(btn){
   try {
     const res = await fetch(CONFIG.API_URL, {
       method: "POST", headers: {"Content-Type":"text/plain;charset=utf-8"},
-      body: JSON.stringify({ action:"emailAgents", pin, baseUrl, includePin, employeeId: empId })
+      body: JSON.stringify({
+        action:"emailAgents", pin, baseUrl, includePin, employeeId: empId,
+        emailOverrides: CONFIG.AGENT_EMAILS || {}
+      })
     }).then(x => x.json());
     showEmailResult(resultEl, res);
     if (res.ok && res.sent && res.sent.length > 0){
