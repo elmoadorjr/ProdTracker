@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101418">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Time Tracker — Supervisor</title>
+<style>
+  :root{
+    --ink:#101418; --panel:#181E24; --line:#262E36; --paper:#F6F7F8; --muted:#8A939E;
+    --working:#1FA463; --break:#E0A53C; --lunch:#E2702E; --bio:#3D7DD8;
+    --locker:#8B5CD6; --out:#C84545; --idle:#5A6672; --alert:#F25C5C;
+    --font:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{font-family:var(--font); background:var(--ink); color:var(--paper); min-height:100dvh}
+  main{max-width:1080px; margin:0 auto; padding:18px}
+
+  header{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px}
+  h1{font-size:20px; font-weight:800; letter-spacing:.01em}
+  .stamp{font-size:12px; color:var(--muted)}
+
+  .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px}
+  .tabs{display:flex; background:var(--panel); border-radius:12px; padding:4px; border:1px solid var(--line)}
+  .tabs button{
+    font-family:var(--font); font-size:14px; font-weight:700; color:var(--muted);
+    background:none; border:none; border-radius:9px; padding:9px 16px; cursor:pointer;
+  }
+  .tabs button.on{background:var(--paper); color:var(--ink)}
+  input[type=date]{
+    font-family:var(--font); background:var(--panel); border:1px solid var(--line);
+    color:var(--paper); border-radius:12px; padding:10px 12px; font-size:14px;
+  }
+  .refresh{
+    font-family:var(--font); font-size:14px; font-weight:800; color:#fff;
+    background:var(--bio); border:none; border-radius:12px; padding:11px 18px; cursor:pointer;
+    margin-left:auto;
+  }
+  .refresh:active{transform:scale(.97)}
+  .refresh:disabled{opacity:.5}
+
+  /* metric chips */
+  .chips{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px}
+  .chip{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px}
+  .chip b{display:block; font-size:26px; font-weight:800; font-variant-numeric:tabular-nums}
+  .chip span{font-size:12px; color:var(--muted)}
+  .chip.floor{background:linear-gradient(135deg,#143024,#0F2419); border-color:#1F5238}
+  .chip.floor b{color:#5FE3A1; font-size:32px}
+
+  .ghost{
+    font-family:var(--font); font-size:13px; font-weight:800; color:var(--paper);
+    background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:11px 14px; cursor:pointer;
+  }
+  .ghost:active{transform:scale(.97)}
+  .delta-pos{color:var(--working);font-weight:700} .delta-neg{color:var(--alert);font-weight:700}
+  .bar-cell{min-width:120px}
+  .minibar{height:7px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:4px}
+  .minibar i{display:block;height:100%;background:var(--working);border-radius:99px}
+  .minibar i.low{background:var(--alert)}
+
+  .form-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:520px;margin-bottom:16px}
+  .form-card h3{font-size:15px;margin-bottom:12px}
+  .form-card label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;font-weight:700}
+  .form-card select,.form-card input{
+    width:100%;font-family:var(--font);font-size:15px;background:var(--ink);border:1px solid var(--line);
+    color:var(--paper);border-radius:10px;padding:11px;
+  }
+  .form-card .go{margin-top:16px;width:100%;background:var(--working);border:none;color:#fff;font-weight:800;
+    font-size:15px;border-radius:12px;padding:13px;cursor:pointer;font-family:var(--font)}
+  .form-msg{font-size:13px;font-weight:700;margin-top:10px;min-height:16px}
+  .form-msg.ok{color:var(--working)} .form-msg.err{color:var(--alert)}
+
+  /* table */
+  .tablewrap{background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow-x:auto}
+  table{width:100%; border-collapse:collapse; font-size:14px; min-width:560px}
+  th{
+    text-align:left; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); padding:12px 14px; border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  td{padding:12px 14px; border-bottom:1px solid var(--line); white-space:nowrap; font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:none}
+  tr.flagged td:first-child{box-shadow:inset 3px 0 0 var(--alert)}
+  .num{text-align:right}
+
+  .pill{display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13px}
+  .pill i{width:9px; height:9px; border-radius:50%; display:inline-block}
+  .s-WORKING i{background:var(--working)} .s-BREAK i{background:var(--break)}
+  .s-LUNCH i{background:var(--lunch)}     .s-BIO i{background:var(--bio)}
+  .s-LOCKER i{background:var(--locker)}   .s-LOGGED_OUT i{background:var(--out)}
+  .s-NOT_STARTED i{background:var(--idle)}
+  .alerts{color:var(--alert); font-size:12px; font-weight:700; white-space:normal; max-width:260px}
+  .muted{color:var(--muted)}
+  .empty{padding:28px; text-align:center; color:var(--muted)}
+
+  /* PIN gate */
+  .gate{max-width:340px; margin:18vh auto 0; text-align:center; display:flex; flex-direction:column; gap:12px; padding:0 18px}
+  .gate h1{font-size:22px}
+  .gate p{font-size:13px; color:var(--muted)}
+  .gate input{
+    font-family:var(--font); font-size:22px; text-align:center; letter-spacing:.4em;
+    background:var(--panel); border:1px solid var(--line); color:var(--paper);
+    border-radius:14px; padding:14px;
+  }
+  .gate button{
+    font-family:var(--font); font-size:16px; font-weight:800; color:#fff;
+    background:var(--working); border:none; border-radius:14px; padding:15px; cursor:pointer;
+  }
+  .gate .err{color:var(--alert); font-weight:700; min-height:18px; font-size:13px}
+</style>
+</head>
+<body>
+<main id="root"></main>
+<script>
+"use strict";
+/* ============================================================
+   CONFIG — same Apps Script Web App URL as index.html
+============================================================ */
+const CONFIG = { API_URL: "https://script.google.com/a/macros/kaviglobal.com/s/AKfycbwTY3rwhXzUPBI4R9gR2B9dlc28Pyp0JXzrtEpTLNsJvI8b5gyjC3MwKSR3YpJFOJg/exec" };
+
+const root = document.getElementById("root");
+let pin = sessionStorage.getItem("tt_pin") || "";
+let tab = "live";                 // live | summary | reconcile | stats | fix
+let summaryDate = new Date().toISOString().slice(0,10);
+let statsMonth = new Date().toISOString().slice(0,7);
+let lastLive = null, lastSummary = null, lastReconcile = null, lastStats = null;
+let employeesCache = null;
+
+const STATE_LABEL = {
+  WORKING:"Working", BREAK:"Break", LUNCH:"Lunch", BIO:"Bio Break",
+  LOCKER:"Locker Break", LOGGED_OUT:"Logged Out", NOT_STARTED:"Not Started"
+};
+const fmtSince = iso => iso ? new Date(iso).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "—";
+const fmtMin = m => m==null ? "" : (m>=60 ? Math.floor(m/60)+"h "+(m%60)+"m" : m+"m");
+const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function api(params){
+  const qs = new URLSearchParams({...params, pin}).toString();
+  const r = await fetch(CONFIG.API_URL + "?" + qs);
+  const data = await r.json();
+  if (!data.ok && /PIN/i.test(data.error||"")){ sessionStorage.removeItem("tt_pin"); pin=""; renderGate("Wrong PIN — try again."); throw new Error("pin"); }
+  if (!data.ok) throw new Error(data.error || "Request failed");
+  return data;
+}
+
+/* ---------------- PIN gate ---------------- */
+function renderGate(err){
+  root.innerHTML = `
+    <div class="gate">
+      <h1>Supervisor Dashboard</h1>
+      <p>Enter the supervisor PIN to continue.</p>
+      <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="••••">
+      <div class="err">${err||""}</div>
+      <button id="pinGo">Unlock</button>
+    </div>`;
+  const input = document.getElementById("pinInput");
+  const go = async () => {
+    pin = input.value.trim();
+    try{
+      await api({action:"team"});            // validates the PIN server-side
+      sessionStorage.setItem("tt_pin", pin);
+      renderShell(); load();
+    }catch(e){ /* renderGate already called on bad PIN */ }
+  };
+  document.getElementById("pinGo").addEventListener("click", go);
+  input.addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
+  input.focus();
+}
+
+/* ---------------- shell ---------------- */
+function renderShell(){
+  root.innerHTML = `
+    <header>
+      <h1>Team Time Tracker</h1>
+      <span class="stamp" id="stamp"></span>
+    </header>
+    <div class="toolbar">
+      <div class="tabs">
+        <button id="tabLive">Live status</button>
+        <button id="tabSummary">Daily summary</button>
+        <button id="tabReconcile">Reconcile</button>
+        <button id="tabStats">Stats</button>
+        <button id="tabFix">Corrections</button>
+      </div>
+      <input type="date" id="datePick" value="${summaryDate}" style="display:none">
+      <input type="month" id="monthPick" value="${summaryDate.slice(0,7)}" style="display:none">
+      <button class="ghost" id="exportBtn" style="display:none">⬇ CSV</button>
+      <button class="refresh" id="refreshBtn">↻ Refresh</button>
+    </div>
+    <div id="content"><div class="empty">Loading…</div></div>`;
+  const T = (id,name)=>document.getElementById(id).addEventListener("click", ()=>{ tab=name; load(); });
+  T("tabLive","live"); T("tabSummary","summary"); T("tabReconcile","reconcile"); T("tabStats","stats"); T("tabFix","fix");
+  document.getElementById("refreshBtn").addEventListener("click", load);
+  document.getElementById("exportBtn").addEventListener("click", exportCSV);
+  document.getElementById("datePick").addEventListener("change", e=>{ summaryDate=e.target.value; load(); });
+  document.getElementById("monthPick").addEventListener("change", e=>{ statsMonth=e.target.value; load(); });
+}
+
+async function load(){
+  const btn = document.getElementById("refreshBtn");
+  ["Live","Summary","Reconcile","Stats","Fix"].forEach(n=>{
+    document.getElementById("tab"+n).className = (tab===n.toLowerCase())?"on":"";
+  });
+  const usesDate = (tab==="summary"||tab==="reconcile");
+  document.getElementById("datePick").style.display = usesDate ? "" : "none";
+  document.getElementById("monthPick").style.display = (tab==="stats") ? "" : "none";
+  document.getElementById("exportBtn").style.display = (tab==="summary"||tab==="stats") ? "" : "none";
+  btn.disabled = true; btn.textContent = "↻ Loading…";
+  try{
+    if (tab==="live"){ lastLive = await api({action:"team"}); renderLive(lastLive); }
+    else if (tab==="summary"){ lastSummary = await api({action:"summary", date:summaryDate}); renderSummary(lastSummary); }
+    else if (tab==="reconcile"){ lastReconcile = await api({action:"reconcile", date:summaryDate}); renderReconcile(lastReconcile); }
+    else if (tab==="stats"){ lastStats = await api({action:"stats", month:statsMonth}); renderStats(lastStats); }
+    else if (tab==="fix"){ renderFix(); }
+    document.getElementById("stamp").textContent = "Updated " + new Date().toLocaleTimeString();
+  }catch(e){
+    if (e.message!=="pin")
+      document.getElementById("content").innerHTML = `<div class="empty">Couldn't load data: ${esc(e.message)}. Check your connection and refresh.</div>`;
+  }
+  if (document.getElementById("refreshBtn")){ btn.disabled = false; btn.textContent = "↻ Refresh"; }
+}
+
+/* ---------------- live view ---------------- */
+function renderLive(data){
+  const t = data.team;
+  const count = s => t.filter(e=>e.state===s).length;
+  const loggedIn = t.filter(e=>!["LOGGED_OUT","NOT_STARTED"].includes(e.state)).length;
+
+  const chips = `
+    <div class="chips">
+      <div class="chip floor"><b>${data.floor.onFloor}<span style="font-size:14px;color:var(--muted)"> / ${loggedIn}</span></b><span>On the floor now</span></div>
+      <div class="chip"><b>${data.floor.offFloor}</b><span>Off floor (break/lunch/bio)</span></div>
+      <div class="chip"><b>${count("LUNCH")}</b><span>On lunch</span></div>
+      <div class="chip"><b>${t.filter(e=>e.targetMet).length}</b><span>Hit ${data.targetHours}h target</span></div>
+      <div class="chip"><b>${t.filter(e=>e.alerts.length).length}</b><span>Alerts</span></div>
+    </div>`;
+
+  const fmtProd = e => {
+    if (e.productionMs == null) return '<span class="muted">—</span>';
+    const m = Math.floor(e.productionMs/60000);
+    const txt = Math.floor(m/60) + "h " + String(m%60).padStart(2,"0") + "m";
+    return e.targetMet ? `<b style="color:var(--working)">${txt} ✓</b>` : `<b>${txt}</b> <span class="muted">/ ${data.targetHours}h</span>`;
+  };
+  const rows = t
+    .sort((a,b)=> (b.alerts.length-a.alerts.length) || a.name.localeCompare(b.name))
+    .map(e=>`
+      <tr class="${e.alerts.length?'flagged':''}">
+        <td><b>${esc(e.name)}</b> <span class="muted">${esc(e.id)}</span></td>
+        <td><span class="pill s-${e.state}"><i></i>${STATE_LABEL[e.state]}</span></td>
+        <td>${fmtSince(e.since)}</td>
+        <td class="num muted">${fmtMin(e.minutesInState)}</td>
+        <td class="num">${fmtProd(e)}</td>
+        <td class="alerts">${e.alerts.map(esc).join(" · ")||""}</td>
+      </tr>`).join("");
+
+  document.getElementById("content").innerHTML = chips + `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Employee</th><th>Status</th><th>Since</th><th>For</th><th class="num">Production</th><th>Alerts</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="empty">No employees configured yet.</td></tr>`}</tbody>
+    </table></div>`;
+}
+
+/* ---------------- summary view ---------------- */
+function renderSummary(data){
+  const r = data.rows, t = data.totals;
+  const chips = `
+    <div class="chips">
+      <div class="chip"><b>${t.employeesLoggedIn}</b><span>Shifts on ${esc(data.date)}</span></div>
+      <div class="chip"><b>${t.avgProductionHours}h</b><span>Avg production</span></div>
+      <div class="chip"><b>${t.totalNonProductionHours}h</b><span>Total non-production</span></div>
+    </div>`;
+
+  const rows = r
+    .sort((a,b)=> (b.alerts.length-a.alerts.length) || a.employeeName.localeCompare(b.employeeName))
+    .map(e=>{
+      const met = e.productionHours >= (data.targetHours||7);
+      const prodCell = `<b style="color:${met?'var(--working)':(e.open?'inherit':'var(--alert)')}">${e.productionHours}h${met?' ✓':''}</b>`;
+      return `
+      <tr class="${e.alerts.length?'flagged':''}">
+        <td><b>${esc(e.employeeName)}</b> <span class="muted">${esc(e.employeeId)}</span></td>
+        <td>${e.timeIn} → ${e.timeOut}${e.open?' <span class="muted">(open)</span>':''}</td>
+        <td class="num">${prodCell}</td>
+        <td class="num">${e.lunchHours}h</td>
+        <td class="num">${e.breakHours}h</td>
+        <td class="num">${e.bioHours}h</td>
+        <td class="num">${e.lockerHours}h</td>
+        <td class="alerts">${e.alerts.map(esc).join(" · ")||""}</td>
+      </tr>`;}).join("");
+
+  document.getElementById("content").innerHTML = chips + `
+    <div class="tablewrap"><table>
+      <thead><tr>
+        <th>Employee</th><th>Shift</th><th class="num">Production</th><th class="num">Lunch</th>
+        <th class="num">Break</th><th class="num">Bio</th><th class="num">Locker</th><th>Alerts</th>
+      </tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="empty">No shifts started on this date.</td></tr>`}</tbody>
+    </table></div>`;
+}
+
+/* ---------------- reconciliation view ---------------- */
+function renderReconcile(data){
+  if (!data.hasBiometric){
+    document.getElementById("content").innerHTML = `<div class="empty">
+      No biometric data for ${esc(data.date)}.<br><br>
+      Paste the official biometric export into the <b>Biometric</b> sheet
+      (columns: Date · Employee ID · Hours), then refresh.</div>`;
+    return;
+  }
+  const flagged = data.rows.filter(r=>r.flag).length;
+  const chips = `<div class="chips">
+    <div class="chip"><b>${data.rows.filter(r=>r.bioHours!=null).length}</b><span>Matched on ${esc(data.date)}</span></div>
+    <div class="chip ${flagged?'':''}"><b style="color:${flagged?'var(--alert)':'var(--working)'}">${flagged}</b><span>Mismatches ≥ 30 min</span></div>
+  </div>`;
+  const rows = data.rows.sort((a,b)=>Math.abs(b.delta||0)-Math.abs(a.delta||0)).map(r=>{
+    if (r.bioHours==null) return `<tr><td><b>${esc(r.employeeName)}</b> <span class="muted">${esc(r.employeeId)}</span></td>
+      <td class="num">${r.appHours}h</td><td class="num muted">no data</td><td class="num muted">—</td></tr>`;
+    const d = r.delta, cls = Math.abs(d)<0.5?"muted":(d>0?"delta-pos":"delta-neg");
+    const sign = d>0?"+":"";
+    return `<tr class="${r.flag?'flagged':''}">
+      <td><b>${esc(r.employeeName)}</b> <span class="muted">${esc(r.employeeId)}</span></td>
+      <td class="num">${r.appHours}h</td>
+      <td class="num">${r.bioHours}h</td>
+      <td class="num ${cls}">${sign}${d}h ${r.flag?'⚠':''}</td></tr>`;
+  }).join("");
+  document.getElementById("content").innerHTML = chips + `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Employee</th><th class="num">App production</th><th class="num">Biometric</th><th class="num">Delta</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <p class="muted" style="font-size:12px;margin-top:10px">A large positive delta usually means someone isn't tapping when they leave the floor. The biometric record is the official source of truth.</p>`;
+}
+
+/* ---------------- monthly stats ---------------- */
+function renderStats(data){
+  const r = data.rows;
+  if (!r.length){ document.getElementById("content").innerHTML = `<div class="empty">No completed shifts in ${esc(data.month)}.</div>`; return; }
+  const teamAvg = (r.reduce((s,x)=>s+x.avgProductionHours,0)/r.length).toFixed(2);
+  const teamHit = Math.round(r.reduce((s,x)=>s+x.targetHitRate,0)/r.length);
+  const chips = `<div class="chips">
+    <div class="chip"><b>${r.length}</b><span>Employees · ${esc(data.month)}</span></div>
+    <div class="chip"><b>${teamAvg}h</b><span>Team avg production</span></div>
+    <div class="chip"><b>${teamHit}%</b><span>Avg ${data.targetHours}h hit rate</span></div>
+  </div>`;
+  const rows = r.map(e=>{
+    const pct = Math.min(100, e.avgProductionHours/data.targetHours*100);
+    return `<tr>
+      <td><b>${esc(e.employeeName)}</b> <span class="muted">${esc(e.employeeId)}</span></td>
+      <td class="num">${e.shifts}</td>
+      <td class="bar-cell"><b>${e.avgProductionHours}h</b><div class="minibar"><i class="${pct<100?'low':''}" style="width:${pct}%"></i></div></td>
+      <td class="num">${e.avgNonProductionHours}h</td>
+      <td class="num"><b style="color:${e.targetHitRate>=80?'var(--working)':(e.targetHitRate>=50?'var(--break)':'var(--alert)')}">${e.targetHitRate}%</b></td>
+      <td class="num muted">${e.totalProductionHours}h</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("content").innerHTML = chips + `
+    <div class="tablewrap"><table>
+      <thead><tr><th>Employee</th><th class="num">Shifts</th><th>Avg production</th><th class="num">Avg non-prod</th><th class="num">${data.targetHours}h hit rate</th><th class="num">Total prod</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
+/* ---------------- corrections (add / edit / delete) ---------------- */
+async function getEmployeesList(){
+  if (employeesCache) return employeesCache;
+  const r = await fetch(CONFIG.API_URL + "?action=employees").then(x=>x.json());
+  employeesCache = r.ok ? r.employees : [];
+  return employeesCache;
+}
+async function renderFix(){
+  const emps = await getEmployeesList();
+  const actions = ["TIME_IN","TIME_OUT","BREAK_START","BREAK_END","LUNCH_START","LUNCH_END","BIO_START","BIO_END","LOCKER_START","LOCKER_END"];
+  const nowLocal = new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById("content").innerHTML = `
+    <div class="form-card">
+      <h3>Add a missed event</h3>
+      <p class="muted" style="font-size:12px">Use when someone forgot to tap — e.g. "John forgot to tap lunch end." Logged with an audit note.</p>
+      <label>Employee</label>
+      <select id="fxEmp">${emps.map(e=>`<option value="${e.id}">${esc(e.name)} (${e.id})</option>`).join("")}</select>
+      <label>Action</label>
+      <select id="fxAction">${actions.map(a=>`<option>${a}</option>`).join("")}</select>
+      <label>When (your local time)</label>
+      <input type="datetime-local" id="fxTime" value="${nowLocal}">
+      <label>Note (why)</label>
+      <input type="text" id="fxNote" placeholder="forgot to tap">
+      <button class="go" id="fxGo">Add event</button>
+      <div class="form-msg" id="fxMsg"></div>
+    </div>
+    <p class="muted" style="font-size:12px">Need to fix a wrong entry instead? Edit or delete the row directly in the <b>Events</b> sheet — the Event ID is in column A.</p>`;
+  document.getElementById("fxGo").addEventListener("click", submitFix);
+}
+async function submitFix(){
+  const msg = document.getElementById("fxMsg");
+  const btn = document.getElementById("fxGo");
+  const localVal = document.getElementById("fxTime").value;
+  if (!localVal){ msg.className="form-msg err"; msg.textContent="Pick a date and time."; return; }
+  btn.disabled = true; btn.textContent = "Adding…";
+  try{
+    const res = await fetch(CONFIG.API_URL, {
+      method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify({
+        action:"addEvent", pin,
+        employeeId: document.getElementById("fxEmp").value,
+        eventType: document.getElementById("fxAction").value,
+        timestamp: new Date(localVal).toISOString(),
+        note: document.getElementById("fxNote").value
+      })
+    }).then(x=>x.json());
+    if (res.ok){ msg.className="form-msg ok"; msg.textContent="✓ Event added."; document.getElementById("fxNote").value=""; }
+    else { msg.className="form-msg err"; msg.textContent = res.error || "Failed."; }
+  }catch(e){ msg.className="form-msg err"; msg.textContent="Network error."; }
+  btn.disabled = false; btn.textContent = "Add event";
+}
+
+/* ---------------- CSV export ---------------- */
+function downloadCSV(filename, rows){
+  const csv = rows.map(r=>r.map(c=>{
+    const s = String(c==null?"":c);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(",")).join("\n");
+  const blob = new Blob([csv], {type:"text/csv"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  URL.revokeObjectURL(a.href);
+}
+function exportCSV(){
+  if (tab==="summary" && lastSummary){
+    const rows = [["Date","Employee ID","Name","Time In","Time Out","Production h","Lunch h","Break h","Bio h","Locker h","Alerts"]];
+    lastSummary.rows.forEach(e=>rows.push([lastSummary.date,e.employeeId,e.employeeName,e.timeIn,e.timeOut,e.productionHours,e.lunchHours,e.breakHours,e.bioHours,e.lockerHours,e.alerts.join("; ")]));
+    downloadCSV("summary_"+lastSummary.date+".csv", rows);
+  } else if (tab==="stats" && lastStats){
+    const rows = [["Month","Employee ID","Name","Shifts","Avg production h","Avg non-prod h","Target hit %","Total production h"]];
+    lastStats.rows.forEach(e=>rows.push([lastStats.month,e.employeeId,e.employeeName,e.shifts,e.avgProductionHours,e.avgNonProductionHours,e.targetHitRate,e.totalProductionHours]));
+    downloadCSV("stats_"+lastStats.month+".csv", rows);
+  }
+}
+
+/* ---------------- boot ---------------- */
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+if (CONFIG.API_URL.startsWith("PASTE")){
+  root.innerHTML = `<div class="empty"><b>Setup needed:</b> open supervisor.html and paste your Apps Script Web App URL into CONFIG.API_URL.</div>`;
+} else if (pin){ renderShell(); load(); }
+else renderGate();
+</script>
+</body>
+</html>

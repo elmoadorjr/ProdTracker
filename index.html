@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101418">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Time Tracker</title>
+<style>
+  /* ------------------------------------------------------------------
+     System font stack on purpose: zero webfont latency on call-center
+     Android phones. Personality comes from weight, scale and the
+     full-screen state tint — the screen itself IS the status light.
+  ------------------------------------------------------------------ */
+  :root{
+    --ink:#101418; --paper:#F6F7F8; --muted:#8A939E; --line:#252C33;
+    --working:#1FA463; --break:#E0A53C; --lunch:#E2702E;
+    --bio:#3D7DD8; --locker:#8B5CD6; --out:#C84545; --idle:#5A6672;
+    --radius:18px;
+    --font:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:var(--font); background:var(--ink); color:var(--paper);
+    display:flex; flex-direction:column; min-height:100dvh;
+    transition:background .45s ease;
+  }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
+
+  /* State tints — body background follows the employee's state */
+  body[data-state="WORKING"]{background:#0D2C1D}
+  body[data-state="BREAK"]{background:#2E2410}
+  body[data-state="LUNCH"]{background:#301A0C}
+  body[data-state="BIO"]{background:#0F1F38}
+  body[data-state="LOCKER"]{background:#1F1233}
+  body[data-state="LOGGED_OUT"]{background:#2B1212}
+
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px; font-size:13px; color:var(--muted);
+  }
+  header .who{font-weight:700; color:var(--paper); letter-spacing:.02em}
+  #syncBadge{
+    font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px;
+    background:#1C2329; color:var(--muted);
+  }
+  #syncBadge.offline{background:#4A3413; color:#F4C868}
+  #syncBadge.syncing{background:#13304A; color:#7FB8F0}
+
+  main{flex:1; display:flex; flex-direction:column; padding:0 18px 18px; max-width:520px; width:100%; margin:0 auto}
+
+  /* --- Signature: the state card --- */
+  .state-card{
+    border-radius:var(--radius); padding:34px 22px 28px; text-align:center;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+    margin-bottom:18px;
+  }
+  .state-dot{font-size:15px; letter-spacing:.22em; font-weight:800; text-transform:uppercase}
+  .state-dot[data-s="WORKING"]{color:var(--working)} .state-dot[data-s="BREAK"]{color:var(--break)}
+  .state-dot[data-s="LUNCH"]{color:var(--lunch)}   .state-dot[data-s="BIO"]{color:var(--bio)}
+  .state-dot[data-s="LOCKER"]{color:var(--locker)} .state-dot[data-s="LOGGED_OUT"]{color:var(--out)}
+  .state-dot[data-s="NOT_STARTED"]{color:var(--idle)}
+  .elapsed{
+    font-size:clamp(56px,18vw,84px); font-weight:800; line-height:1.05; margin-top:10px;
+    font-variant-numeric:tabular-nums; letter-spacing:-.02em;
+  }
+  .since{margin-top:6px; font-size:13px; color:var(--muted)}
+
+  /* --- 7h production target panel --- */
+  .prod-panel{
+    border-radius:var(--radius); padding:18px 20px; margin-bottom:18px;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+  }
+  .prod-row{display:flex; justify-content:space-between; align-items:baseline}
+  .prod-row b{font-size:22px; font-weight:800; font-variant-numeric:tabular-nums}
+  .prod-row span{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700}
+  .prod-bar{height:8px; border-radius:99px; background:rgba(255,255,255,.1); margin:12px 0 10px; overflow:hidden}
+  .prod-bar i{display:block; height:100%; background:var(--working); border-radius:99px; transition:width 1s linear}
+  .prod-bar i.met{background:#3DD68C}
+  .prod-bar i.risk{background:var(--out)}
+  .prod-hint{font-size:13px; color:var(--paper); font-weight:600}
+  .prod-hint.risk{color:#F58A8A}
+  .prod-hint.met{color:#5FE3A1}
+  .sched-line{margin-top:8px; font-size:12px; color:var(--muted)}
+
+  /* --- floor / break-queue indicator --- */
+  .floor-line{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    font-size:13px; color:var(--muted); margin-bottom:12px; font-weight:600;
+  }
+  .floor-line b{color:var(--paper)} .floor-line .dot{width:8px;height:8px;border-radius:50%;background:var(--working);display:inline-block}
+
+  /* --- end-of-shift recap --- */
+  .recap{border-radius:var(--radius); padding:26px 22px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); text-align:center}
+  .recap h2{font-size:18px; font-weight:800; margin-bottom:4px}
+  .recap .big{font-size:clamp(44px,14vw,64px); font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.02em; margin:6px 0}
+  .recap .big.met{color:#5FE3A1} .recap .big.miss{color:#F58A8A}
+  .recap .verdict{font-size:14px; font-weight:700; margin-bottom:18px}
+  .recap .grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:4px}
+  .recap .grid div{background:rgba(255,255,255,.04); border-radius:12px; padding:10px 4px}
+  .recap .grid b{display:block; font-size:17px; font-variant-numeric:tabular-nums}
+  .recap .grid span{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
+
+  /* --- my week --- */
+  .link-btn{background:none; border:none; color:var(--muted); font-family:var(--font); font-size:13px; font-weight:700; cursor:pointer; text-decoration:underline; padding:4px}
+  .week-list{display:flex; flex-direction:column; gap:10px; margin-top:6px}
+  .week-row{display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:14px 16px}
+  .week-row .d{font-weight:700} .week-row .d small{display:block; color:var(--muted); font-weight:500; font-size:11px}
+  .week-row .h{font-size:19px; font-weight:800; font-variant-numeric:tabular-nums}
+  .week-row .h.met{color:#5FE3A1} .week-row .h.miss{color:#F58A8A}
+
+  /* --- Actions --- */
+  .actions{display:flex; flex-direction:column; gap:12px; margin-top:auto}
+  button.action{
+    font-family:var(--font); font-size:19px; font-weight:800; letter-spacing:.03em;
+    border:none; border-radius:var(--radius); padding:20px; width:100%;
+    color:#fff; cursor:pointer; transition:transform .08s ease, filter .15s ease;
+  }
+  button.action:active{transform:scale(.97); filter:brightness(1.15)}
+  button.action:focus-visible{outline:3px solid #fff; outline-offset:3px}
+  button.action:disabled{opacity:.45; pointer-events:none}
+  .a-TIME_IN{background:var(--working)}
+  .a-TIME_OUT{background:var(--out)}
+  .a-BREAK_START{background:var(--break); color:#241A05}
+  .a-LUNCH_START{background:var(--lunch)}
+  .a-BIO_START{background:var(--bio)}
+  .a-LOCKER_START{background:var(--locker)}
+  .a-RETURN{background:var(--working)}
+  .secondary-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+
+  /* --- Toast --- */
+  #toast{
+    position:fixed; left:50%; bottom:max(24px, env(safe-area-inset-bottom));
+    transform:translate(-50%, 80px); opacity:0;
+    background:#fff; color:var(--ink); font-weight:800; font-size:15px;
+    padding:13px 22px; border-radius:999px; pointer-events:none;
+    transition:transform .25s ease, opacity .25s ease; white-space:nowrap;
+    box-shadow:0 8px 30px rgba(0,0,0,.4);
+  }
+  #toast.show{transform:translate(-50%,0); opacity:1}
+  #toast.warn{background:#F4C868}
+
+  /* --- Identify screen (dropdown fallback) --- */
+  .identify{display:flex; flex-direction:column; gap:14px; margin:auto 0; text-align:center}
+  .identify h1{font-size:24px; font-weight:800}
+  .identify p{color:var(--muted); font-size:14px}
+  select,.identify button{
+    font-family:var(--font); font-size:17px; padding:16px; border-radius:14px;
+    border:1px solid var(--line); background:#1A2026; color:var(--paper); width:100%;
+  }
+  .identify button{background:var(--working); border:none; font-weight:800; cursor:pointer}
+
+  .loading,.error-screen{margin:auto; text-align:center; color:var(--muted); padding:0 24px}
+  .error-screen b{color:var(--paper)}
+</style>
+</head>
+<body data-state="">
+  <header>
+    <span class="who" id="whoami">&nbsp;</span>
+    <span id="syncBadge">● online</span>
+  </header>
+  <main id="app"><div class="loading">Loading…</div></main>
+  <div id="toast"></div>
+
+<script>
+"use strict";
+/* =====================================================================
+   CONFIG — paste your Apps Script Web App URL (the /exec one) here
+===================================================================== */
+const CONFIG = {
+  API_URL: "https://script.google.com/a/macros/kaviglobal.com/s/AKfycbwTY3rwhXzUPBI4R9gR2B9dlc28Pyp0JXzrtEpTLNsJvI8b5gyjC3MwKSR3YpJFOJg/exec"
+};
+
+/* ---------- state machine (mirrors the server) ---------- */
+const STATE_FROM_EVENT = {
+  TIME_IN:"WORKING", TIME_OUT:"LOGGED_OUT",
+  BREAK_START:"BREAK", BREAK_END:"WORKING",
+  LUNCH_START:"LUNCH", LUNCH_END:"WORKING",
+  BIO_START:"BIO", BIO_END:"WORKING",
+  LOCKER_START:"LOCKER", LOCKER_END:"WORKING"
+};
+const VALID_ACTIONS = {
+  NOT_STARTED:["TIME_IN"], LOGGED_OUT:["TIME_IN"],
+  WORKING:["BREAK_START","LUNCH_START","BIO_START","LOCKER_START","TIME_OUT"],
+  BREAK:["BREAK_END"], LUNCH:["LUNCH_END"], BIO:["BIO_END"], LOCKER:["LOCKER_END"]
+};
+const LABELS = {
+  TIME_IN:"TIME IN", TIME_OUT:"TIME OUT",
+  BREAK_START:"BREAK", LUNCH_START:"LUNCH", BIO_START:"BIO BREAK", LOCKER_START:"LOCKER BREAK",
+  BREAK_END:"RETURN TO WORK", LUNCH_END:"RETURN TO WORK", BIO_END:"RETURN TO WORK", LOCKER_END:"RETURN TO WORK"
+};
+const STATE_TEXT = {
+  NOT_STARTED:"⚪ NOT STARTED", WORKING:"🟢 WORKING", BREAK:"🟡 BREAK", LUNCH:"🟠 LUNCH",
+  BIO:"🔵 BIO BREAK", LOCKER:"🟣 LOCKER BREAK", LOGGED_OUT:"🔴 SHIFT COMPLETED"
+};
+
+/* ---------- app state ---------- */
+const app = document.getElementById("app");
+let employee = null;                       // {id,name}
+let state = "NOT_STARTED";
+let since = null;                          // Date of last event
+let timerHandle = null;
+
+/* Production accounting for the current shift:
+   prodBaseMs = production accumulated while not currently counting
+   prodAnchor = Date when WORKING started counting (null = paused) */
+let shiftStart = null, prodBaseMs = 0, prodAnchor = null;
+let targets = { minProductionHours: 7, shiftLengthHours: 9 };
+let schedule = [];
+let floor = null;                 // {onFloor, offFloor, loggedIn} from the lightweight endpoint
+let lastRecap = null;             // today's completed shift breakdown for the recap card
+let view = "main";                // "main" | "week"
+let nudged = { midpoint:false };  // so we nudge once per shift, not every second
+const liveProdMs = () => prodBaseMs + (prodAnchor ? Date.now() - prodAnchor.getTime() : 0);
+const fmtHM = ms => {
+  const m = Math.max(0, Math.round(ms/60000));
+  return Math.floor(m/60) + ":" + pad(m%60);
+};
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
+  : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==="x"?r:(r&3|8)).toString(16);}));
+const fmtClock = d => d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+const pad = n => String(n).padStart(2,"0");
+const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function toast(msg, warn){
+  const t = $("#toast");
+  t.textContent = msg; t.className = warn ? "warn show" : "show";
+  clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove("show"), 2200);
+}
+function vibrate(){ if (navigator.vibrate) navigator.vibrate(40); }
+
+/* ---------- offline queue (localStorage) ---------- */
+const QKEY = "tt_queue_v1";
+const getQueue  = () => JSON.parse(localStorage.getItem(QKEY) || "[]");
+const setQueue  = q => localStorage.setItem(QKEY, JSON.stringify(q));
+let flushing = false;
+
+function updateSyncBadge(){
+  const b = $("#syncBadge");
+  const pending = getQueue().length;
+  if (!navigator.onLine){ b.textContent = "● offline · " + pending + " queued"; b.className = "offline"; }
+  else if (pending > 0){ b.textContent = "↻ syncing " + pending + "…"; b.className = "syncing"; }
+  else { b.textContent = "● online"; b.className = ""; }
+}
+
+async function postEvent(ev){
+  const res = await fetch(CONFIG.API_URL, {
+    method:"POST",
+    headers:{ "Content-Type":"text/plain;charset=utf-8" },   // simple request → no CORS preflight
+    body: JSON.stringify({ action:"logEvent", ...ev })
+  });
+  return res.json();
+}
+
+async function flushQueue(){
+  if (flushing || !navigator.onLine) return;
+  flushing = true;
+  let q = getQueue();
+  while (q.length){
+    try{
+      const r = await postEvent(q[0]);
+      if (r.ok || /not allowed/.test(r.error||"")) q.shift();   // accepted or permanently rejected
+      else break;
+      setQueue(q);
+    }catch(_){ break; }                                         // still offline — try again later
+  }
+  flushing = false;
+  updateSyncBadge();
+}
+window.addEventListener("online", ()=>{ flushQueue(); updateSyncBadge(); });
+window.addEventListener("offline", updateSyncBadge);
+setInterval(flushQueue, 30000);
+
+/* ---------- actions ---------- */
+async function doAction(eventType){
+  const ev = {
+    eventId: uuid(),
+    employeeId: employee.id,
+    eventType,
+    clientTimestamp: new Date().toISOString()
+  };
+
+  // Optimistic UI — the screen responds instantly
+  const tapTime = new Date();
+  if (prodAnchor){ prodBaseMs += tapTime.getTime() - prodAnchor.getTime(); prodAnchor = null; }
+  if (eventType === "TIME_IN"){ shiftStart = tapTime; prodBaseMs = 0; nudged = { midpoint:false }; }
+  if (STATE_FROM_EVENT[eventType] === "WORKING") prodAnchor = tapTime;
+  if (eventType === "TIME_OUT"){ prodAnchor = null; lastRecap = null; }
+
+  state = STATE_FROM_EVENT[eventType];
+  since = tapTime;
+  localStorage.setItem("tt_state_" + employee.id, JSON.stringify({state, since: since.toISOString()}));
+  render(); vibrate();
+
+  let queued = false;
+  if (navigator.onLine){
+    try{
+      const r = await postEvent(ev);
+      if (!r.ok && r.state){           // server disagreed (e.g. action from another device)
+        state = r.state; since = null; render();
+        toast("Out of sync — status refreshed", true);
+        return;
+      }
+    }catch(_){ queued = true; }
+  } else queued = true;
+
+  if (queued){
+    setQueue([...getQueue(), ev]);
+    toast("✓ Saved offline · will sync");
+  } else {
+    toast("✓ Action recorded · " + fmtClock(new Date()));
+  }
+  updateSyncBadge();
+
+  // End-of-shift recap: pull today's completed breakdown for the card
+  if (eventType === "TIME_OUT" && navigator.onLine){
+    try{
+      const w = await fetchJSON(CONFIG.API_URL + "?action=week&id=" + encodeURIComponent(employee.id));
+      if (w.ok && w.days && w.days[0]) { lastRecap = w.days[0]; render(); }
+    }catch(_){}
+  }
+  if (eventType !== "TIME_IN") refreshFloor();   // floor count changed
+}
+
+/* ---------- floor / break-queue (lightweight, no PIN) ---------- */
+async function refreshFloor(){
+  try{
+    const r = await fetchJSON(CONFIG.API_URL + "?action=floor");
+    if (r.ok){ floor = r; const el = $("#floorLine"); if (el) el.innerHTML = floorHtml(); }
+  }catch(_){}
+}
+function floorHtml(){
+  if (!floor) return "";
+  return `<span class="dot"></span><b>${floor.onFloor}</b> on the floor · <b>${floor.offFloor}</b> off`;
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  document.body.dataset.state = state;
+  $("#whoami").textContent = employee ? employee.name + " · " + employee.id : "";
+
+  if (view === "week"){ renderWeek(); return; }
+
+  // End-of-shift recap card
+  if (state === "LOGGED_OUT" && lastRecap){
+    const r = lastRecap, met = r.metTarget;
+    app.innerHTML = `
+      <section class="recap">
+        <h2>Shift complete — ${esc(employee.name.split(" ")[0])}</h2>
+        <div class="big ${met?'met':'miss'}">${fmtHrs(r.productionHours)}</div>
+        <div class="verdict" style="color:${met?'#5FE3A1':'#F58A8A'}">
+          ${met ? "✓ You hit the "+targets.minProductionHours+"h minimum" : "Below the "+targets.minProductionHours+"h minimum"}
+        </div>
+        <div class="grid">
+          <div><b>${fmtHrs(r.lunchHours)}</b><span>Lunch</span></div>
+          <div><b>${fmtHrs(r.breakHours)}</b><span>Break</span></div>
+          <div><b>${fmtHrs(r.bioHours)}</b><span>Bio</span></div>
+          <div><b>${fmtHrs(r.lockerHours)}</b><span>Locker</span></div>
+        </div>
+        <div class="sched-line" style="margin-top:16px">${r.timeIn} → ${r.timeOut} · ${fmtHrs(r.loggedHours)} on shift</div>
+      </section>
+      <div class="actions" style="margin-top:18px">
+        <button class="action a-TIME_IN" data-ev="TIME_IN">START NEW SHIFT</button>
+        <button class="link-btn" id="weekBtn" style="margin-top:6px">View my week</button>
+      </div>`;
+    bindButtons();
+    return;
+  }
+
+  const actions = VALID_ACTIONS[state] || [];
+  const isPause = ["BREAK","LUNCH","BIO","LOCKER"].includes(state);
+
+  let buttonsHtml = "";
+  if (state === "WORKING"){
+    buttonsHtml = `
+      <div class="secondary-grid">
+        ${btn("BREAK_START")}${btn("LUNCH_START")}
+        ${btn("BIO_START")}${btn("LOCKER_START")}
+      </div>
+      ${btn("TIME_OUT")}`;
+  } else {
+    buttonsHtml = actions.map(a => btn(a, isPause ? "a-RETURN" : "")).join("");
+  }
+
+  app.innerHTML = `
+    <section class="state-card" aria-live="polite">
+      <div class="state-dot" data-s="${state}">${STATE_TEXT[state]}</div>
+      <div class="elapsed" id="elapsed">--:--:--</div>
+      <div class="since" id="sinceLine"></div>
+    </section>
+    ${shiftStart && state !== "LOGGED_OUT" && state !== "NOT_STARTED" ? `
+    <section class="prod-panel">
+      <div class="prod-row">
+        <span>Production time</span>
+        <b><span id="prodNow">0:00</span><span style="font-size:14px;color:var(--muted)"> / ${targets.minProductionHours}:00</span></b>
+      </div>
+      <div class="prod-bar"><i id="prodBar" style="width:0%"></i></div>
+      <div class="prod-hint" id="prodHint"></div>
+      ${schedule.length ? `<div class="sched-line">Your schedule: ${schedule.map(w=>`${w.type==="LUNCH"?"Lunch":"Break"} ${w.start}–${w.end}`).join(" · ")}</div>` : ""}
+    </section>` : ""}
+    ${state === "WORKING" ? `<div class="floor-line" id="floorLine">${floorHtml()}</div>` : ""}
+    <div class="actions">${buttonsHtml}</div>
+    ${(state !== "NOT_STARTED") ? `<button class="link-btn" id="weekBtn" style="margin:14px auto 0;display:block">View my week</button>` : ""}`;
+
+  bindButtons();
+  startTimer();
+  if (state === "WORKING") refreshFloor();
+}
+
+function bindButtons(){
+  app.querySelectorAll("button.action").forEach(b =>
+    b.addEventListener("click", () => doAction(b.dataset.ev)));
+  const wb = $("#weekBtn");
+  if (wb) wb.addEventListener("click", () => { view = "week"; openWeek(); });
+}
+
+/* ---------- my week ---------- */
+let weekData = null;
+async function openWeek(){
+  app.innerHTML = `<div class="loading">Loading your week…</div>`;
+  try{
+    const w = await fetchJSON(CONFIG.API_URL + "?action=week&id=" + encodeURIComponent(employee.id));
+    if (w.ok){ weekData = w; }
+  }catch(_){}
+  renderWeek();
+}
+function renderWeek(){
+  clearInterval(timerHandle);
+  const rows = (weekData && weekData.days || []).map(d=>{
+    const cls = d.open ? "" : (d.metTarget ? "met" : "miss");
+    const dt = new Date(d.date + "T00:00:00");
+    return `<div class="week-row">
+      <div class="d">${dt.toLocaleDateString([], {weekday:"short"})}
+        <small>${dt.toLocaleDateString([], {month:"short", day:"numeric"})} · ${d.timeIn}→${d.timeOut}</small></div>
+      <div class="h ${cls}">${fmtHrs(d.productionHours)}${d.open?' <small style="color:var(--muted)">(open)</small>':(d.metTarget?' ✓':'')}</div>
+    </div>`;
+  }).join("");
+  app.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h2 style="font-size:18px;font-weight:800">Last 7 shifts</h2>
+      <button class="link-btn" id="backBtn">← Back</button>
+    </div>
+    <div class="week-list">${rows || `<div class="week-row"><div class="d">No shifts yet</div></div>`}</div>`;
+  $("#backBtn").addEventListener("click", ()=>{ view = "main"; render(); });
+}
+const fmtHrs = h => Math.floor(h) + ":" + pad(Math.round((h - Math.floor(h)) * 60));
+function btn(eventType, extraClass){
+  return `<button class="action a-${eventType} ${extraClass||""}" data-ev="${eventType}">${LABELS[eventType]}</button>`;
+}
+function startTimer(){
+  clearInterval(timerHandle);
+  const el = $("#elapsed"), line = $("#sinceLine");
+  const tick = () => {
+    if (!since){ el.textContent = "00:00:00"; line.textContent = ""; }
+    else {
+      const s = Math.max(0, Math.floor((Date.now() - since.getTime())/1000));
+      el.textContent = pad(Math.floor(s/3600)) + ":" + pad(Math.floor(s/60)%60) + ":" + pad(s%60);
+      line.textContent = "since " + fmtClock(since);
+    }
+    updateProdPanel();
+  };
+  tick();
+  timerHandle = setInterval(tick, 1000);
+}
+
+function updateProdPanel(){
+  const prodEl = $("#prodNow");
+  if (!prodEl || !shiftStart) return;
+  const targetMs = targets.minProductionHours * 3600000;
+  const prod = liveProdMs();
+  const bar = $("#prodBar"), hint = $("#prodHint");
+
+  prodEl.textContent = fmtHM(prod);
+  bar.style.width = Math.min(100, prod/targetMs*100) + "%";
+
+  const schedEnd = shiftStart.getTime() + targets.shiftLengthHours * 3600000;
+  // Break budget: pause time you can still take and hit the target by scheduled shift end
+  const budget = (schedEnd - Date.now()) - (targetMs - prod);
+
+  if (prod >= targetMs){
+    bar.className = "met"; hint.className = "prod-hint met";
+    hint.textContent = "✓ " + targets.minProductionHours + "h target met";
+  } else if (budget <= 0){
+    bar.className = "risk"; hint.className = "prod-hint risk";
+    const doneAt = new Date(Date.now() + (targetMs - prod));
+    hint.textContent = "Past budget — stay until " + fmtClock(doneAt) + " to hit " + targets.minProductionHours + "h";
+  } else {
+    bar.className = ""; hint.className = "prod-hint" + (budget < 15*60000 ? " risk" : "");
+    hint.textContent = "Break budget left: " + fmtHM(budget) + " · hit " + targets.minProductionHours + "h by " +
+      fmtClock(new Date(schedEnd)) + " if breaks stay under it";
+  }
+
+  // One-time midpoint nudge: past the halfway mark and pace won't make target
+  const elapsed = Date.now() - shiftStart.getTime();
+  const halfShift = targets.shiftLengthHours * 3600000 / 2;
+  if (!nudged.midpoint && elapsed > halfShift && state === "WORKING" && budget < 0){
+    nudged.midpoint = true;
+    toast("Heads up: at this pace you'll miss " + targets.minProductionHours + "h", true);
+    vibrate();
+  }
+}
+
+/* ---------- identification ---------- */
+async function fetchJSON(url){
+  const r = await fetch(url);
+  return r.json();
+}
+
+async function identify(){
+  const urlId = new URLSearchParams(location.search).get("id");
+  if (urlId) return resolveEmployee(urlId.trim());
+
+  // Dropdown fallback
+  let list = JSON.parse(localStorage.getItem("tt_employees") || "null");
+  try{
+    const r = await fetchJSON(CONFIG.API_URL + "?action=employees");
+    if (r.ok){ list = r.employees; localStorage.setItem("tt_employees", JSON.stringify(list)); }
+  }catch(_){ /* use cached list offline */ }
+
+  if (!list || !list.length){
+    app.innerHTML = `<div class="error-screen"><b>Can't load the employee list.</b><br><br>
+      Check your connection and reload, or open your personal link (…?id=YOUR_ID).</div>`;
+    return;
+  }
+  app.innerHTML = `
+    <div class="identify">
+      <h1>Who's clocking in?</h1>
+      <p>Tip: bookmark your personal link to skip this step.</p>
+      <select id="empSelect">
+        ${list.map(e=>`<option value="${e.id}">${e.name} (${e.id})</option>`).join("")}
+      </select>
+      <button id="goBtn">Continue</button>
+    </div>`;
+  $("#goBtn").addEventListener("click", ()=>{
+    const id = $("#empSelect").value;
+    history.replaceState(null,"", "?id=" + encodeURIComponent(id));
+    resolveEmployee(id);
+  });
+}
+
+async function resolveEmployee(id){
+  // Show cached state immediately, then reconcile with the server
+  const cachedList = JSON.parse(localStorage.getItem("tt_employees") || "[]");
+  const cachedEmp = cachedList.find(e=>e.id===id);
+  const cachedState = JSON.parse(localStorage.getItem("tt_state_" + id) || "null");
+  if (cachedEmp){
+    employee = cachedEmp;
+    if (cachedState){ state = cachedState.state; since = new Date(cachedState.since); }
+    render();
+  }
+  try{
+    const r = await fetchJSON(CONFIG.API_URL + "?action=status&id=" + encodeURIComponent(id));
+    if (!r.ok){
+      app.innerHTML = `<div class="error-screen"><b>${r.error}</b><br><br>Ask your supervisor to check your employee ID.</div>`;
+      return;
+    }
+    employee = r.employee;
+    targets = r.targets || targets;
+    schedule = r.schedule || [];
+    // Only adopt the server state if nothing is waiting to sync
+    if (getQueue().filter(q=>q.employeeId===id).length === 0){
+      state = r.state;
+      since = r.since ? new Date(r.since) : null;
+      if (r.shift){
+        shiftStart = new Date(r.shift.shiftStart);
+        prodBaseMs = r.shift.productionMs;
+        prodAnchor = (state === "WORKING") ? new Date(r.generatedAt) : null;
+      } else {
+        shiftStart = null; prodBaseMs = 0; prodAnchor = null;
+      }
+      localStorage.setItem("tt_state_"+id, JSON.stringify({state, since: since ? since.toISOString() : null}));
+    }
+    render();
+  }catch(_){
+    if (!employee){
+      app.innerHTML = `<div class="error-screen"><b>You're offline and have no saved profile yet.</b><br><br>Connect to the internet once to set up this device.</div>`;
+    }
+  }
+  updateSyncBadge();
+}
+
+/* ---------- boot ---------- */
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+if (CONFIG.API_URL.startsWith("PASTE")){
+  app.innerHTML = `<div class="error-screen"><b>Setup needed:</b><br><br>Open index.html and paste your Apps Script Web App URL into CONFIG.API_URL.</div>`;
+} else {
+  updateSyncBadge();
+  flushQueue();
+  identify();
+}
+</script>
+</body>
+</html>
