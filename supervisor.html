@@ -203,6 +203,82 @@
 
   /* ── Section heading in content ── */
   .section-note{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.6; padding:0 2px}
+
+  /* ── Directory tab ── */
+  .dir-search{
+    margin-bottom:16px;
+  }
+  .dir-search input{
+    width:100%; max-width:400px; font-family:var(--font); font-size:14px;
+    background:var(--panel); border:1px solid var(--line); color:var(--paper);
+    border-radius:12px; padding:10px 14px; outline:none;
+    transition:border-color .2s;
+  }
+  .dir-search input:focus{border-color:var(--working)}
+  .dir-search input::placeholder{color:var(--muted)}
+  .dir-section-label{
+    font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); padding:4px 0 10px;
+  }
+  .dir-cards{display:flex; flex-direction:column; gap:8px; margin-bottom:24px}
+  .dir-card{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:14px 16px; gap:12px;
+  }
+  .dir-card .dc-info{flex:1; min-width:0}
+  .dir-card .dc-name{font-weight:700; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .dir-card .dc-id{font-size:11px; color:var(--muted); margin-top:2px}
+  .dir-card .dc-url{font-size:11px; color:var(--working); margin-top:3px; word-break:break-all}
+  .dir-copy{
+    font-family:var(--font); font-size:12px; font-weight:700;
+    background:var(--panel2); border:1px solid var(--line); border-radius:10px;
+    color:var(--muted); padding:6px 12px; cursor:pointer; white-space:nowrap; flex-shrink:0;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .dir-copy:hover{background:var(--working); color:#001A0D; border-color:var(--working)}
+  .dir-copy.copied{background:var(--working); color:#001A0D; border-color:var(--working)}
+  .dir-toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--working); color:#001A0D; font-size:13px; font-weight:700;
+    padding:10px 22px; border-radius:999px; opacity:0; pointer-events:none;
+    transition:opacity .2s; white-space:nowrap;
+  }
+  .dir-toast.show{opacity:1}
+
+  /* ── Email agents ── */
+  .email-bar{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:14px 16px; margin-bottom:16px;
+  }
+  .email-bar-label{flex:1; min-width:160px}
+  .email-bar-label b{display:block; font-size:14px; font-weight:700}
+  .email-bar-label span{font-size:12px; color:var(--muted)}
+  .btn-email{
+    font-family:var(--font); font-size:13px; font-weight:800;
+    background:var(--working); border:none; border-radius:11px;
+    color:#001A0D; padding:10px 18px; cursor:pointer; white-space:nowrap;
+    transition:opacity .15s;
+  }
+  .btn-email:disabled{opacity:.45; cursor:default}
+  .btn-email-single{
+    font-family:var(--font); font-size:12px; font-weight:700;
+    background:var(--panel2); border:1px solid var(--line); border-radius:10px;
+    color:var(--muted); padding:5px 11px; cursor:pointer; white-space:nowrap; flex-shrink:0;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .btn-email-single:hover{background:var(--working); color:#001A0D; border-color:var(--working)}
+  .btn-email-single:disabled{opacity:.4; cursor:default}
+  .email-result{
+    margin-top:12px; font-size:12px; line-height:1.7;
+    background:var(--panel2); border-radius:10px; padding:12px 14px;
+    display:none;
+  }
+  .email-result.visible{display:block}
+  .email-result .er-sent{color:var(--working)}
+  .email-result .er-skip{color:var(--muted)}
+  .email-result .er-err{color:var(--alert)}
 </style>
 </head>
 <body>
@@ -211,13 +287,13 @@
     <h1>ProdTracker</h1>
     <span class="stamp" id="stamp"></span>
   </div>
-  <a href="menu.html" class="dir-link">Directory</a>
 </div>
 <div class="heat-strip" id="heatStrip" style="display:none">
   <span class="heat-strip-label">Team</span>
   <div class="heat-dots" id="heatDots"></div>
 </div>
 <main id="root"></main>
+<div class="dir-toast" id="dirToast">Link copied!</div>
 
 <script>
 "use strict";
@@ -325,6 +401,7 @@ function renderShell(){
         <button id="tabStats">Stats</button>
         <button id="tabFix">Corrections</button>
         <button id="tabPins">PINs</button>
+        <button id="tabDirectory">Directory</button>
       </div>
       <input type="date" id="datePick" value="${summaryDate}" style="display:none">
       <input type="month" id="monthPick" value="${summaryDate.slice(0,7)}" style="display:none">
@@ -335,7 +412,7 @@ function renderShell(){
 
   const T = (id,name)=>document.getElementById(id).addEventListener("click",()=>{ tab=name; load(); });
   T("tabLive","live"); T("tabSummary","summary"); T("tabReconcile","reconcile");
-  T("tabStats","stats"); T("tabFix","fix"); T("tabPins","pins");
+  T("tabStats","stats"); T("tabFix","fix"); T("tabPins","pins"); T("tabDirectory","directory");
   document.getElementById("refreshBtn").addEventListener("click", load);
   document.getElementById("exportBtn").addEventListener("click", exportCSV);
   document.getElementById("datePick").addEventListener("change", e=>{ summaryDate=e.target.value; load(); });
@@ -344,7 +421,7 @@ function renderShell(){
 
 async function load(){
   const btn = document.getElementById("refreshBtn");
-  ["Live","Summary","Reconcile","Stats","Fix","Pins"].forEach(n=>{
+  ["Live","Summary","Reconcile","Stats","Fix","Pins","Directory"].forEach(n=>{
     const el = document.getElementById("tab"+n);
     if (el) el.className = (tab===n.toLowerCase())?"on":"";
   });
@@ -360,6 +437,7 @@ async function load(){
     else if (tab==="stats"){ lastStats = await api({action:"stats",month:statsMonth}); renderStats(lastStats); }
     else if (tab==="fix"){ await renderFix(); }
     else if (tab==="pins"){ await renderPins(); }
+    else if (tab==="directory"){ await renderDirectory(); }
     const stamp = document.getElementById("stamp");
     if (stamp) stamp.textContent = "Updated " + new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
   }catch(e){
@@ -661,6 +739,144 @@ function exportCSV(){
     lastStats.rows.forEach(e=>rows.push([lastStats.month,e.employeeId,e.employeeName,e.shifts,e.avgProductionHours,e.avgNonProductionHours,e.targetHitRate,e.totalProductionHours]));
     downloadCSV("stats_"+lastStats.month+".csv",rows);
   }
+}
+
+/* ── Directory ── */
+async function renderDirectory(){
+  document.getElementById("content").innerHTML = `<div class="empty">Loading agents…</div>`;
+  const emps = await getEmployeesList();
+  const active = emps.filter(e => e.active !== false && e.active !== "FALSE");
+  const BASE_URL = window.location.origin + window.location.pathname.replace("supervisor.html","") + "index.html";
+
+  const withEmail = active.filter(a => a.email && a.email.trim() && a.email.includes("@")).length;
+  const noEmail   = active.length - withEmail;
+
+  const cards = active.map(a => {
+    const url = BASE_URL + "?id=" + encodeURIComponent(a.id);
+    const hasEmail = a.email && a.email.includes("@");
+    return `
+      <div class="dir-card" data-id="${esc(a.id)}" data-name="${esc(a.name)}">
+        <div class="dc-info">
+          <div class="dc-name">${esc(a.name)}</div>
+          <div class="dc-id">ID: ${esc(a.id)}${hasEmail ? ` · <span style="color:var(--working)">${esc(a.email)}</span>` : ` · <span style="color:var(--muted)">no email</span>`}</div>
+          <div class="dc-url">${esc(url)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          ${hasEmail
+            ? `<button class="btn-email-single" data-empid="${esc(a.id)}" data-baseurl="${esc(BASE_URL)}" onclick="emailSingleAgent(this)">✉ Send</button>`
+            : ``}
+          <button class="dir-copy" data-url="${esc(url)}" onclick="dirCopyLink(this)">Copy link</button>
+        </div>
+      </div>`;
+  }).join("") || `<div class="empty">No active agents found.</div>`;
+
+  document.getElementById("content").innerHTML = `
+    <div class="email-bar">
+      <div class="email-bar-label">
+        <b>📧 Email all agents</b>
+        <span>${withEmail} of ${active.length} agent${active.length !== 1 ? "s" : ""} have an email address${noEmail ? ` · ${noEmail} will be skipped` : ""}</span>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;flex-shrink:0">
+        <input type="checkbox" id="includePinChk" checked style="accent-color:var(--working)"> Include PIN
+      </label>
+      <button class="btn-email" id="emailAllBtn" onclick="emailAllAgents('${esc(BASE_URL)}')"${withEmail === 0 ? " disabled" : ""}>Send to all</button>
+    </div>
+    <div class="email-result" id="emailResult"></div>
+    <div class="dir-search">
+      <input type="search" id="dirSearch" placeholder="Search agent by name or ID…">
+    </div>
+    <div class="dir-section-label">${active.length} active agent${active.length !== 1 ? "s" : ""}</div>
+    <div class="dir-cards" id="dirCards">${cards}</div>
+    <p class="section-note">Add agent email addresses in column D of the <b>Employees</b> sheet to enable email delivery.</p>`;
+
+  const searchEl = document.getElementById("dirSearch");
+  if (searchEl){
+    searchEl.addEventListener("input", () => {
+      const q = searchEl.value.toLowerCase();
+      document.querySelectorAll("#dirCards .dir-card").forEach(card => {
+        const name = card.dataset.name.toLowerCase();
+        const id = card.dataset.id.toLowerCase();
+        card.style.display = (name.includes(q) || id.includes(q)) ? "" : "none";
+      });
+    });
+  }
+}
+
+async function emailAllAgents(baseUrl){
+  const btn = document.getElementById("emailAllBtn");
+  const resultEl = document.getElementById("emailResult");
+  const includePin = document.getElementById("includePinChk")?.checked !== false;
+  if (!btn) return;
+  btn.disabled = true; btn.textContent = "Sending…";
+  resultEl.className = "email-result"; resultEl.innerHTML = "";
+  try {
+    const res = await fetch(CONFIG.API_URL, {
+      method: "POST", headers: {"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify({ action:"emailAgents", pin, baseUrl, includePin })
+    }).then(x => x.json());
+    showEmailResult(resultEl, res);
+  } catch(e) {
+    resultEl.className = "email-result visible";
+    resultEl.innerHTML = `<span class="er-err">Network error — ${esc(String(e.message||e))}</span>`;
+  }
+  btn.disabled = false; btn.textContent = "Send to all";
+}
+
+async function emailSingleAgent(btn){
+  const empId = btn.dataset.empid;
+  const baseUrl = btn.dataset.baseurl;
+  const resultEl = document.getElementById("emailResult");
+  const includePin = document.getElementById("includePinChk")?.checked !== false;
+  const allBtns = document.querySelectorAll(".btn-email-single");
+  allBtns.forEach(b => b.disabled = true);
+  btn.textContent = "Sending…";
+  resultEl.className = "email-result"; resultEl.innerHTML = "";
+  try {
+    const res = await fetch(CONFIG.API_URL, {
+      method: "POST", headers: {"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify({ action:"emailAgents", pin, baseUrl, includePin, employeeId: empId })
+    }).then(x => x.json());
+    showEmailResult(resultEl, res);
+    if (res.ok && res.sent && res.sent.length > 0){
+      btn.textContent = "✓ Sent";
+      setTimeout(() => { btn.textContent = "✉ Send"; }, 3000);
+    } else {
+      btn.textContent = "✉ Send";
+    }
+  } catch(e) {
+    resultEl.className = "email-result visible";
+    resultEl.innerHTML = `<span class="er-err">Network error — ${esc(String(e.message||e))}</span>`;
+    btn.textContent = "✉ Send";
+  }
+  allBtns.forEach(b => b.disabled = false);
+}
+
+function showEmailResult(el, res){
+  if (!res.ok){ el.className = "email-result visible"; el.innerHTML = `<span class="er-err">Error: ${esc(res.error||"Unknown error")}</span>`; return; }
+  const sentLines = (res.sent||[]).map(s => `<span class="er-sent">✓ ${esc(s.name)} → ${esc(s.email)}</span>`).join("<br>");
+  const skipLines = (res.skipped||[]).map(s => `<span class="er-skip">— ${esc(s.name)}: ${esc(s.reason)}</span>`).join("<br>");
+  const parts = [];
+  if (res.sent && res.sent.length) parts.push(`<b>${res.sent.length} sent</b><br>${sentLines}`);
+  if (res.skipped && res.skipped.length) parts.push(`<b style="color:var(--muted)">${res.skipped.length} skipped</b><br>${skipLines}`);
+  el.className = "email-result visible";
+  el.innerHTML = parts.join("<br><br>") || "Nothing to send.";
+}
+  const url = btn.dataset.url;
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = "✓ Copied";
+    btn.classList.add("copied");
+    const toast = document.getElementById("dirToast");
+    if (toast){ toast.classList.add("show"); setTimeout(()=>toast.classList.remove("show"),2000); }
+    setTimeout(() => { btn.textContent = "Copy link"; btn.classList.remove("copied"); }, 2000);
+  }).catch(() => {
+    // Fallback for older mobile browsers
+    const ta = document.createElement("textarea");
+    ta.value = url; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select(); document.execCommand("copy");
+    document.body.removeChild(ta);
+    btn.textContent = "✓ Copied"; btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = "Copy link"; btn.classList.remove("copied"); }, 2000);
+  });
 }
 
 /* ── Boot ── */
