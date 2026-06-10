@@ -364,6 +364,33 @@ let statsTab = "weekly";
 let weekData = null;
 let nudged = { midpoint:false };
 let shiftEvents = [];
+let pinSetOnServer = false;
+
+/* Full local snapshot of the live shift, so an offline reload mid-shift
+   restores the ring, production count and timeline — not just the state. */
+const snapKey = id => "tt_snap_" + id;
+function saveSnapshot(){
+  if (!employee) return;
+  localStorage.setItem(snapKey(employee.id), JSON.stringify({
+    state, since: since ? since.toISOString() : null,
+    shiftStart: shiftStart ? shiftStart.toISOString() : null,
+    prodBaseMs, prodAnchor: prodAnchor ? prodAnchor.toISOString() : null,
+    shiftEvents, nudged, targets, pinSetOnServer
+  }));
+}
+function restoreSnapshot(id){
+  const s = JSON.parse(localStorage.getItem(snapKey(id)) || "null");
+  if (!s) return false;
+  state = s.state; since = s.since ? new Date(s.since) : null;
+  shiftStart = s.shiftStart ? new Date(s.shiftStart) : null;
+  prodBaseMs = s.prodBaseMs || 0;
+  prodAnchor = s.prodAnchor ? new Date(s.prodAnchor) : null;
+  shiftEvents = s.shiftEvents || [];
+  nudged = s.nudged || { midpoint:false };
+  if (s.targets) targets = s.targets;
+  pinSetOnServer = !!s.pinSetOnServer;
+  return true;
+}
 const liveProdMs = () => prodBaseMs + (prodAnchor ? Date.now() - prodAnchor.getTime() : 0);
 const fmtHM = ms => {
   const m = Math.max(0, Math.round(ms/60000));
@@ -375,7 +402,7 @@ const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
   : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16);}));
 const fmtClock = d => d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
 const pad = n => String(n).padStart(2,"0");
-const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc = s => String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 function toast(msg, warn){
   const t = $("#toast");
@@ -414,10 +441,15 @@ async function flushQueue(){
   while (q.length){
     try{
       const r = await postEvent(q[0]);
-      if (r.ok || /not allowed/.test(r.error||"")) q.shift();
-      else break;
+      if (r.ok){ q.shift(); }
+      else if (r.permanent || /not allowed|Unknown employee|Invalid event|PIN/i.test(r.error||"")){
+        // The server will never accept this event — drop it and tell the user.
+        q.shift();
+        toast("1 tap couldn't sync: " + (r.error || "rejected"), true);
+      }
+      else break; // transient server error — retry later
       setQueue(q);
-    }catch(_){ break; }
+    }catch(_){ break; } // network error — retry later
   }
   flushing = false;
   updateSyncBadge();
@@ -520,10 +552,20 @@ function updateTimeline(){
 }
 
 /* ─── PIN gate ── */
-function getAgentPin(id){ return localStorage.getItem("tt_apin_" + id) || null; }
-function setAgentPin(id, pin){ localStorage.setItem("tt_apin_" + id, pin); }
+const getLocalPin = id => localStorage.getItem("tt_apin_" + id) || null;
+const setLocalPin = (id, p) => localStorage.setItem("tt_apin_" + id, p);
+const clearLocalPin = id => localStorage.removeItem("tt_apin_" + id);
 
-function openPinGate(isNew, onSuccess, onCancel){
+/**
+ * opts.mode: "set" (create + confirm) | "enter" (collect 4 digits)
+ * opts.verify: optional locally-cached pin — if given, mismatches are rejected
+ *              inline (the server still re-verifies on submit)
+ * opts.error:  optional error message to show on open
+ * opts.onPin(pin), opts.onCancel()
+ */
+function openPinGate(opts){
+  const { mode, verify, error, onPin, onCancel } = opts;
+  const isNew = mode === "set";
   const existing = document.getElementById("pinGateEl");
   if (existing) existing.remove();
   const div = document.createElement("div");
@@ -531,7 +573,7 @@ function openPinGate(isNew, onSuccess, onCancel){
   div.innerHTML = `
     <h2>${isNew ? "Set your PIN" : "Verify your identity"}</h2>
     <p>${isNew
-      ? "Choose a 4-digit PIN. You'll use this every time you clock in."
+      ? "Choose a 4-digit PIN. You'll use this every time you clock in — on any device."
       : "Enter your 4-digit PIN to clock in."}</p>
     <div class="pin-row" id="pinRowInputs">
       <input type="password" inputmode="numeric" maxlength="1" id="pg0" autofocus>
@@ -546,7 +588,7 @@ function openPinGate(isNew, onSuccess, onCancel){
       <input type="password" inputmode="numeric" maxlength="1" id="pc2">
       <input type="password" inputmode="numeric" maxlength="1" id="pc3">
     </div>` : ""}
-    <div class="pin-err" id="pgErr"></div>
+    <div class="pin-err" id="pgErr">${esc(error || "")}</div>
     <button class="pin-cancel" id="pgCancel">Cancel</button>`;
   document.body.appendChild(div);
 
@@ -571,9 +613,12 @@ function openPinGate(isNew, onSuccess, onCancel){
 
   if (!isNew){
     wireInputs(inputs, pin => {
-      const stored = getAgentPin(employee.id);
-      if (pin === stored){ div.remove(); onSuccess(); }
-      else { setErr("Incorrect PIN. Try again."); inputs.forEach(i => { i.value=""; }); inputs[0].focus(); }
+      if (verify && pin !== verify){
+        setErr("Incorrect PIN. Try again.");
+        inputs.forEach(i => { i.value=""; }); inputs[0].focus();
+        return;
+      }
+      div.remove(); onPin(pin);
     });
   } else {
     let firstPin = null;
@@ -584,7 +629,7 @@ function openPinGate(isNew, onSuccess, onCancel){
       confirms[0].focus();
     });
     wireInputs(confirms, pin => {
-      if (pin === firstPin){ setAgentPin(employee.id, pin); div.remove(); onSuccess(); }
+      if (pin === firstPin){ div.remove(); onPin(pin); }
       else {
         setErr("PINs don't match. Try again.");
         confirms.forEach(i => { i.value=""; }); inputs.forEach(i => { i.value=""; });
@@ -598,21 +643,58 @@ function openPinGate(isNew, onSuccess, onCancel){
   document.getElementById("pgCancel").addEventListener("click", () => { div.remove(); if (onCancel) onCancel(); });
 }
 
-/* ─── Actions ── */
-async function doAction(eventType){
-  if (eventType === "TIME_IN"){
-    const existingPin = getAgentPin(employee.id);
-    openPinGate(!existingPin, () => performAction(eventType), null);
-    return;
-  }
-  performAction(eventType);
+/* Register a freshly chosen PIN with the server (so it works on every device
+   and shows up on the supervisor's PINs tab). */
+async function registerPin(pinValue){
+  const res = await fetch(CONFIG.API_URL, {
+    method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body: JSON.stringify({ action:"setAgentPin", employeeId: employee.id, pin: pinValue })
+  });
+  const r = await res.json();
+  if (!r.ok) throw new Error(r.error || "Couldn't save PIN");
+  return true;
 }
 
-async function performAction(eventType){
+/* ─── Actions ── */
+async function doAction(eventType, gateError){
+  if (eventType !== "TIME_IN"){ performAction(eventType); return; }
+
+  const cached = getLocalPin(employee.id);
+  if (cached){
+    // Known device: quick local check, server re-verifies on submit.
+    openPinGate({ mode:"enter", verify: cached, error: gateError,
+                  onPin: p => performAction("TIME_IN", p) });
+  } else if (pinSetOnServer){
+    // New device, PIN exists on the server — collect it; the server is the judge.
+    if (!navigator.onLine){
+      toast("Connect to the internet once to verify your PIN on this phone", true);
+      return;
+    }
+    openPinGate({ mode:"enter", error: gateError,
+                  onPin: p => performAction("TIME_IN", p) });
+  } else {
+    // No PIN anywhere yet — first-time setup (registered server-side).
+    if (!navigator.onLine){ performAction("TIME_IN", null); return; }
+    openPinGate({ mode:"set", error: gateError, onPin: async p => {
+      try{
+        await registerPin(p);
+        setLocalPin(employee.id, p);
+        pinSetOnServer = true;
+        performAction("TIME_IN", p);
+      }catch(err){
+        toast(String(err.message || "Couldn't save PIN"), true);
+      }
+    }});
+  }
+}
+
+async function performAction(eventType, agentPin){
   const ev = {
     eventId: uuid(), employeeId: employee.id,
     eventType, clientTimestamp: new Date().toISOString()
   };
+  if (eventType === "TIME_IN" && agentPin) ev.agentPin = agentPin;
+
   const tapTime = new Date();
   if (prodAnchor){ prodBaseMs += tapTime.getTime() - prodAnchor.getTime(); prodAnchor = null; }
   if (eventType === "TIME_IN"){ shiftStart = tapTime; prodBaseMs = 0; nudged = { midpoint:false }; lastRecap = null; shiftEvents = []; }
@@ -621,14 +703,22 @@ async function performAction(eventType){
   if (eventType !== "TIME_IN") shiftEvents.push({ ts: tapTime.toISOString(), action: eventType });
   state = STATE_FROM_EVENT[eventType];
   since = tapTime;
-  localStorage.setItem("tt_state_" + employee.id, JSON.stringify({state, since: since.toISOString()}));
+  saveSnapshot();
   render(); vibrate();
 
   let queued = false;
   if (navigator.onLine){
     try{
       const r = await postEvent(ev);
-      if (!r.ok && r.state){ state = r.state; since = null; render(); toast("Out of sync — status refreshed", true); return; }
+      if (!r.ok && r.pinError){
+        // Server rejected the PIN — roll back the optimistic clock-in.
+        clearLocalPin(employee.id);
+        await resolveEmployee(employee.id);
+        doAction("TIME_IN", "Incorrect PIN. Try again.");
+        return;
+      }
+      if (!r.ok && r.state){ state = r.state; since = null; saveSnapshot(); render(); toast("Out of sync — status refreshed", true); return; }
+      if (r.ok && eventType === "TIME_IN" && agentPin) setLocalPin(employee.id, agentPin);
     }catch(_){ queued = true; }
   } else queued = true;
 
@@ -822,13 +912,11 @@ function renderStats(){
 
   let content = "";
   if (statsTab === "daily"){
-    const today = days[0] || null;
-    if (!today){
-      content = `<div style="text-align:center;color:var(--muted);padding:32px 0;font-size:14px">No shift recorded yet today.</div>`;
-    } else {
-      content = shiftCardHtml(today, targetH, true);
-    }
-    if (shiftStart && state !== "LOGGED_OUT"){
+    const now = new Date();
+    const localToday = now.getFullYear() + "-" + pad(now.getMonth()+1) + "-" + pad(now.getDate());
+    const todayClosed = days.filter(d => d.date === localToday && !d.open);
+    const live = shiftStart && state !== "LOGGED_OUT";
+    if (live){
       const liveProd = liveProdMs();
       const livePct = Math.min(100, liveProd / (targetH * 3600000) * 100);
       content = `
@@ -846,7 +934,16 @@ function renderStats(){
             <span>Target: <b>${targetH}h</b></span>
             <span>Status: <b style="color:${STATE_COLOR[state]||'inherit'}">${state}</b></span>
           </div>
-        </div>` + (today ? `<div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px">Previous shifts today:</div>` + shiftCardHtml(today, targetH, false) : "");
+        </div>`;
+      if (todayClosed.length){
+        content += `<div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px">Earlier shifts today:</div>`
+                 + todayClosed.map(d => shiftCardHtml(d, targetH, false)).join("");
+      }
+    } else if (todayClosed.length){
+      content = shiftCardHtml(todayClosed[0], targetH, true)
+              + todayClosed.slice(1).map(d => shiftCardHtml(d, targetH, false)).join("");
+    } else {
+      content = `<div style="text-align:center;color:var(--muted);padding:32px 0;font-size:14px">No shift recorded yet today.</div>`;
     }
   } else if (statsTab === "weekly"){
     if (!days.length){
@@ -951,22 +1048,23 @@ async function identify(){
 async function resolveEmployee(id){
   const cachedList = JSON.parse(localStorage.getItem("tt_employees")||"[]");
   const cachedEmp = cachedList.find(e=>e.id===id);
-  const cachedState = JSON.parse(localStorage.getItem("tt_state_" + id)||"null");
   if (cachedEmp){
     employee = cachedEmp;
-    if (cachedState){ state = cachedState.state; since = new Date(cachedState.since); }
+    restoreSnapshot(id);   // full shift snapshot — ring/production survive an offline reload
     render();
   }
   try{
     const r = await fetchJSON(CONFIG.API_URL + "?action=status&id=" + encodeURIComponent(id));
     if (!r.ok){
-      app.innerHTML = `<div class="error-screen"><b>${r.error}</b>Ask your supervisor to check your employee ID.</div>`;
+      app.innerHTML = `<div class="error-screen"><b>${esc(r.error)}</b>Ask your supervisor to check your employee ID.</div>`;
       return;
     }
     employee = r.employee;
     targets = r.targets || targets;
     schedule = r.schedule || [];
+    pinSetOnServer = !!r.pinSet;
     if (getQueue().filter(q=>q.employeeId===id).length === 0){
+      // No unsynced taps — the server's view is authoritative.
       state = r.state;
       since = r.since ? new Date(r.since) : null;
       if (r.shift){
@@ -976,7 +1074,8 @@ async function resolveEmployee(id){
       } else {
         shiftStart = null; prodBaseMs = 0; prodAnchor = null;
       }
-      localStorage.setItem("tt_state_"+id, JSON.stringify({state, since: since ? since.toISOString() : null}));
+      shiftEvents = r.shiftEvents || [];
+      saveSnapshot();
     }
     render();
   }catch(_){

@@ -3,18 +3,20 @@
    Network calls to the Apps Script API are NEVER cached (always live);
    offline event queuing is handled in the page via localStorage. */
 
-const CACHE = "tt-shell-v1";
-const SHELL = [
-  "./",
-  "./index.html",
-  "./supervisor.html",
-  "./manifest.json",
-  "./icon-192.png",
-  "./icon-512.png"
-];
+const CACHE = "tt-shell-v2";
+
+// Core files — install fails loudly if these are missing.
+const CORE = ["./", "./index.html", "./supervisor.html", "./manifest.json"];
+// Nice-to-have files — cached best-effort so a missing icon can't break install.
+const OPTIONAL = ["./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE).then(async (c) => {
+      await c.addAll(CORE);
+      await Promise.allSettled(OPTIONAL.map((u) => c.add(u)));
+    }).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", (e) => {

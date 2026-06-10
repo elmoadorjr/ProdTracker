@@ -320,7 +320,7 @@ const STATE_FROM_EVENT = {
 };
 const fmtSince = iso => iso ? new Date(iso).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "—";
 const fmtMin = m => m==null?"":m>=60?Math.floor(m/60)+"h "+(m%60)+"m":m+"m";
-const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 async function api(params){
   const qs = new URLSearchParams({...params, pin}).toString();
@@ -383,7 +383,14 @@ function renderGate(err){
   const input = document.getElementById("pinInput");
   const go = async () => {
     pin = input.value.trim();
-    try{ await api({action:"team"}); sessionStorage.setItem("tt_pin",pin); renderShell(); load(); }catch(e){}
+    if (!pin) return;
+    try{ await api({action:"team"}); sessionStorage.setItem("tt_pin",pin); renderShell(); load(); }
+    catch(e){
+      if (e.message !== "pin"){
+        const errEl = root.querySelector(".gate .err");
+        if (errEl) errEl.textContent = "Couldn't reach the server — check your connection and the API URL.";
+      }
+    }
   };
   document.getElementById("pinGo").addEventListener("click", go);
   input.addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
@@ -429,6 +436,7 @@ async function load(){
   document.getElementById("datePick").style.display = usesDate?"":"none";
   document.getElementById("monthPick").style.display = (tab==="stats")?"":"none";
   document.getElementById("exportBtn").style.display = (tab==="summary"||tab==="stats")?"":"none";
+  if (tab !== "live") document.getElementById("heatStrip").style.display = "none";
   if (btn){ btn.disabled=true; btn.textContent="Loading…"; }
   try{
     if (tab==="live"){ lastLive = await api({action:"team"}); renderLive(lastLive); }
@@ -663,7 +671,7 @@ async function renderPins(){
   }catch(_){}
 
   const rows = emps.map(e=>{
-    const pinVal = serverPins[e.id] || localStorage.getItem("tt_apin_" + e.id);
+    const pinVal = serverPins[e.id] || "";
     const set = !!pinVal;
     return `<tr>
       <td><b>${esc(e.name)}</b></td>
@@ -673,7 +681,7 @@ async function renderPins(){
       </td>
       <td>
         ${set
-          ? `<button class="btn-ghost" style="font-size:12px;padding:5px 10px" onclick="resetPin('${esc(e.id)}',this)">Reset</button>`
+          ? `<button class="btn-ghost btn-pin-reset" style="font-size:12px;padding:5px 10px" data-empid="${esc(e.id)}">Reset</button>`
           : `<span style="font-size:11px;color:var(--muted)">Agent sets on first clock-in</span>`
         }
       </td>
@@ -702,20 +710,28 @@ async function renderPins(){
       if (p){ cell.textContent=p; cell.classList.remove("hidden-pin"); cell.classList.add("revealed"); }
     });
   });
+  document.querySelectorAll(".btn-pin-reset").forEach(b =>
+    b.addEventListener("click", () => resetPin(b.dataset.empid, b)));
 }
 
-function resetPin(empId, btn){
+async function resetPin(empId, btn){
   if (!confirm("Reset PIN for this agent?")) return;
-  localStorage.removeItem("tt_apin_" + empId);
-  fetch(CONFIG.API_URL, {
-    method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
-    body: JSON.stringify({ action:"resetAgentPin", pin, employeeId: empId })
-  }).catch(()=>{});
-  btn.textContent="✓ Reset"; btn.disabled=true;
-  const cell = document.getElementById("pin-cell-" + empId);
-  if (cell){
-    cell.innerHTML = '<span style="color:var(--muted);font-size:12px;font-weight:500;letter-spacing:0">Not set</span>';
-    cell.classList.remove("hidden-pin","revealed"); cell.dataset.pin="";
+  btn.disabled = true; btn.textContent = "Resetting…";
+  try{
+    const res = await fetch(CONFIG.API_URL, {
+      method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify({ action:"resetAgentPin", pin, employeeId: empId })
+    }).then(x=>x.json());
+    if (!res.ok) throw new Error(res.error || "Reset failed");
+    btn.textContent = "✓ Reset";
+    const cell = document.getElementById("pin-cell-" + empId);
+    if (cell){
+      cell.innerHTML = '<span style="color:var(--muted);font-size:12px;font-weight:500;letter-spacing:0">Not set</span>';
+      cell.classList.remove("hidden-pin","revealed"); cell.dataset.pin="";
+    }
+  }catch(e){
+    btn.disabled = false; btn.textContent = "Reset";
+    alert("Couldn't reset PIN: " + (e.message || e));
   }
 }
 
@@ -725,7 +741,7 @@ function downloadCSV(filename, rows){
     const s = String(c==null?"":c);
     return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
   }).join(",")).join("\n");
-  const blob = new Blob([csv],{type:"text/csv"});
+  const blob = new Blob(["\uFEFF" + csv],{type:"text/csv;charset=utf-8"});
   const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=filename; a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -744,8 +760,7 @@ function exportCSV(){
 /* ── Directory ── */
 async function renderDirectory(){
   document.getElementById("content").innerHTML = `<div class="empty">Loading agents…</div>`;
-  const emps = await getEmployeesList();
-  const active = emps.filter(e => e.active !== false && e.active !== "FALSE");
+  const active = await getEmployeesList(); // server returns active employees only
   const BASE_URL = window.location.origin + window.location.pathname.replace("supervisor.html","") + "index.html";
 
   const withEmail = active.filter(a => a.email && a.email.trim() && a.email.includes("@")).length;
@@ -763,9 +778,9 @@ async function renderDirectory(){
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0">
           ${hasEmail
-            ? `<button class="btn-email-single" data-empid="${esc(a.id)}" data-baseurl="${esc(BASE_URL)}" onclick="emailSingleAgent(this)">✉ Send</button>`
+            ? `<button class="btn-email-single" data-empid="${esc(a.id)}" data-baseurl="${esc(BASE_URL)}">✉ Send</button>`
             : ``}
-          <button class="dir-copy" data-url="${esc(url)}" onclick="dirCopyLink(this)">Copy link</button>
+          <button class="dir-copy" data-url="${esc(url)}">Copy link</button>
         </div>
       </div>`;
   }).join("") || `<div class="empty">No active agents found.</div>`;
@@ -779,7 +794,7 @@ async function renderDirectory(){
       <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer;flex-shrink:0">
         <input type="checkbox" id="includePinChk" checked style="accent-color:var(--working)"> Include PIN
       </label>
-      <button class="btn-email" id="emailAllBtn" onclick="emailAllAgents('${esc(BASE_URL)}')"${withEmail === 0 ? " disabled" : ""}>Send to all</button>
+      <button class="btn-email" id="emailAllBtn" data-baseurl="${esc(BASE_URL)}"${withEmail === 0 ? " disabled" : ""}>Send to all</button>
     </div>
     <div class="email-result" id="emailResult"></div>
     <div class="dir-search">
@@ -800,6 +815,12 @@ async function renderDirectory(){
       });
     });
   }
+  const allBtn = document.getElementById("emailAllBtn");
+  if (allBtn) allBtn.addEventListener("click", () => emailAllAgents(allBtn.dataset.baseurl));
+  document.querySelectorAll(".btn-email-single").forEach(b =>
+    b.addEventListener("click", () => emailSingleAgent(b)));
+  document.querySelectorAll(".dir-copy").forEach(b =>
+    b.addEventListener("click", () => dirCopyLink(b)));
 }
 
 async function emailAllAgents(baseUrl){
@@ -861,6 +882,8 @@ function showEmailResult(el, res){
   el.className = "email-result visible";
   el.innerHTML = parts.join("<br><br>") || "Nothing to send.";
 }
+
+function dirCopyLink(btn){
   const url = btn.dataset.url;
   navigator.clipboard.writeText(url).then(() => {
     btn.textContent = "✓ Copied";

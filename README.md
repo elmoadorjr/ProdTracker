@@ -93,6 +93,16 @@ flushes on the `online` event and every 30 s. The server deduplicates by Event
 ID, so retries can never create double entries, and the original tap time is
 preserved.
 
+Queue errors are classified: transient failures (network down, Apps Script
+quota) are retried; permanent rejections (state-machine violation, wrong PIN,
+unknown employee) are dropped with a visible warning toast so one bad event can
+never block the queue forever.
+
+The app also persists a **full shift snapshot** (state, shift start, production
+so far, timeline events) locally, so reloading the page offline mid-shift
+restores the ring, the production counter and the timeline — not just the
+current state.
+
 ## 6. Deployment
 
 ### A. Backend (once)
@@ -122,15 +132,23 @@ preserved.
 
 ## 7. Security model (lightweight, by design)
 
-- Employees are identified by ID only — appropriate for an internal,
-  low-stakes tool where the worst case is a mislogged break.
+- Employees are identified by their personal `?id=` link **plus a 4-digit agent
+  PIN that is verified server-side on every clock-in**. The agent sets the PIN
+  on first clock-in; it's registered with the server, so it works on any device
+  and shows up on the supervisor's PINs tab. A coworker who knows someone's
+  link can no longer clock in for them without the PIN.
+- Only `TIME_IN` is PIN-gated. Breaks/returns inside an open shift are not, so
+  offline taps mid-shift always sync cleanly and the 8-taps-a-night flow stays
+  frictionless.
+- Lost PIN: the supervisor resets it from the **PINs** tab; the agent creates a
+  new one at the next clock-in.
 - The supervisor PIN is checked **server-side** on every team/summary request
-  and is never embedded in the page.
+  and is never embedded in the page. (It does travel in the request, so treat
+  the Apps Script URL itself as internal.)
 - The Apps Script runs as the sheet owner; the spreadsheet itself never needs
   to be shared with anyone.
-- Not suitable for adversarial environments (an employee who knows another ID
-  could clock for them). If that matters later, add a per-employee secret token
-  to the URL and verify it in `logEvent`.
+- This is still an internal, low-stakes tool — not hardened for truly
+  adversarial environments. The official record remains the biometric system.
 
 ## 8. Maintenance & scale
 
@@ -225,3 +243,43 @@ the room. Coach the team: phone tap at the door, same as the badge scan.
 - GPS/geofencing (phones lie indoors; biometrics already verify presence)
 - Hard-blocking off-schedule breaks (people are mid-call — flag, don't block)
 - Employee passwords (friction kills adoption of an 8-taps-a-night tool)
+
+## 12. Upgrade notes — 2026-06 hardening revision
+
+**You must redeploy the backend:** Apps Script → paste the new `Code.gs` →
+**Deploy → Manage deployments → Edit → New version** (do NOT create a new
+deployment — that would change the URL). Then push the new frontend files.
+The service worker cache was bumped to `tt-shell-v2`, so clients pick up the
+new pages automatically on next load.
+
+Fixed in this revision:
+
+- **supervisor.html was completely broken** — a deleted function declaration
+  (`dirCopyLink`) left a top-level SyntaxError, so the whole dashboard script
+  never ran. Restored.
+- **Agent PINs are now real.** Previously the PIN lived only in the agent's own
+  browser and the server never checked it: anyone with a coworker's link could
+  clock in as them from a fresh device, and the supervisor PINs tab always
+  showed "Not set". Now the PIN is registered server-side on first clock-in,
+  verified server-side on every `TIME_IN` (`pinError` responses roll back the
+  optimistic UI and re-prompt), survives device changes, and the supervisor
+  PINs tab / reset actually work.
+- **PWA install was silently failing** if the icon files were missing, because
+  `cache.addAll()` rejects on any 404 — no offline shell at all. Core files are
+  now cached strictly and icons best-effort; `icon-192.png` / `icon-512.png`
+  are now included in the repo.
+- **Offline queue** no longer blocks forever on a permanently-rejected event
+  (it's dropped with a visible warning); network errors still retry.
+- **Offline reload mid-shift** now restores the full shift (ring, production,
+  timeline) from a local snapshot instead of just the state label.
+- **Timeline after reload**: the `status` API now returns the open shift's
+  events, so the shift timeline no longer starts empty after a page refresh.
+- **"Today" stats tab** showed the most recent shift even if it was last week,
+  could crash on an open shift with no closed shift today, and duplicated the
+  live shift as a "previous" card. All fixed; multiple closed shifts in one day
+  now all display.
+- **Hardening / polish**: `esc()` now escapes quotes; inline `onclick` handlers
+  replaced with bound listeners; supervisor unlock and PIN reset surface errors
+  instead of failing silently; stale heat strip hidden on non-Live tabs; CSV
+  exports get a UTF-8 BOM so Excel opens names correctly; server marks
+  permanent rejections with `permanent: true` for the client.

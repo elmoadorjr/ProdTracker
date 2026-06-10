@@ -187,10 +187,17 @@ function logEvent(body) {
   var eventId = String(body.eventId || Utilities.getUuid());
 
   if (!STATE_FROM_EVENT.hasOwnProperty(eventType)) {
-    return { ok: false, error: 'Invalid event type: ' + eventType };
+    return { ok: false, error: 'Invalid event type: ' + eventType, permanent: true };
   }
   var employee = findEmployee(employeeId);
-  if (!employee) return { ok: false, error: 'Unknown employee: ' + employeeId };
+  if (!employee) return { ok: false, error: 'Unknown employee: ' + employeeId, permanent: true };
+
+  // Agent PIN check (server-side). Only TIME_IN is gated — once a shift is open,
+  // breaks/returns aren't PIN-gated so offline taps mid-shift always sync cleanly.
+  if (eventType === 'TIME_IN') {
+    var v = verifyAgentPin(employeeId, body.agentPin);
+    if (!v.ok) return { ok: false, error: 'Incorrect agent PIN', pinError: true, permanent: true };
+  }
 
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_EVENTS);
   var events = readEvents(sheet);
@@ -209,7 +216,8 @@ function logEvent(body) {
       ok: false,
       error: eventType + ' is not allowed from state ' + current.state,
       state: current.state,
-      validActions: VALID_ACTIONS[current.state]
+      validActions: VALID_ACTIONS[current.state],
+      permanent: true
     };
   }
 
@@ -385,7 +393,9 @@ function getEmployeeStatus(id) {
     since: s.since,
     validActions: VALID_ACTIONS[s.state],
     shift: getCurrentShiftStats(events, id, now),
+    shiftEvents: getShiftEvents(events.filter(function(e){ return e.employeeId === id; }), now),
     schedule: getSchedule()[id] || [],
+    pinSet: !!cfg['AGENT_PIN_' + id],
     targets: {
       minProductionHours: Number(cfg.MIN_PRODUCTION_HOURS),
       shiftLengthHours: Number(cfg.SHIFT_LENGTH_HOURS)
