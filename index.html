@@ -886,6 +886,10 @@ function render(){
     startTimer();
     // If no fetch is already in-flight (e.g. page was reloaded into this state),
     // kick one off now so the screen doesn't hang forever.
+    // Fix 3B: If we got here via a page reload (restoreSnapshot put us in LOGGED_OUT
+    // with no lastRecap), the flag may be stale from a prior hung attempt in this same
+    // page lifetime. Reset it so the fetch below actually runs.
+    if (!lastRecap) render._recapFetching = false;
     if (employee && !render._recapFetching){
       render._recapFetching = true;
       (async () => {
@@ -1149,6 +1153,10 @@ async function resolveEmployee(id){
     targets = r.targets || targets;
     schedule = r.schedule || [];
     pinSetOnServer = !!r.pinSet;
+    // Fix 2C/2A: if the server says no PIN is set (e.g. supervisor reset it),
+    // evict any stale locally-cached PIN so the agent is not blocked offline
+    // and doesn't go through a confusing "PIN works locally, fails on server" loop.
+    if (!r.pinSet) clearLocalPin(r.employee.id);
     if (getQueue().filter(q=>q.employeeId===id).length === 0){
       // No unsynced taps — the server's view is authoritative.
       state = r.state;
