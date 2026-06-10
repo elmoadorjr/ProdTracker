@@ -869,7 +869,7 @@ function render(){
       <div class="ring-wrap">
         <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
           <circle class="ring-track" cx="110" cy="110" r="80" stroke-dasharray="502" stroke-dashoffset="0" pathLength="502"/>
-          <circle id="ringFill" class="ring-fill ${ringClass}" cx="110" cy="110" r="80" style="stroke-dashoffset:${showRing ? ARC_TOTAL : ARC_TOTAL}"/>
+          <circle id="ringFill" class="ring-fill ${ringClass}" cx="110" cy="110" r="80"/>
         </svg>
         <div class="ring-inner">
           <div class="ring-state" data-s="${state}">${STATE_TEXT[state]}</div>
@@ -931,9 +931,13 @@ function renderStats(){
 
   let content = "";
   if (statsTab === "daily"){
-    const now = new Date();
-    const localToday = now.getFullYear() + "-" + pad(now.getMonth()+1) + "-" + pad(now.getDate());
-    const todayClosed = days.filter(d => d.date === localToday && !d.open);
+    // Use server-side "today": the date of the most recent day entry, or the live shift's
+    // shiftStart date, rather than the client's local date — avoids TZ mismatch when the
+    // Apps Script is in a different timezone from the browser.
+    const serverToday = (days.length ? days[0].date : null)
+      || (shiftStart ? shiftStart.getFullYear() + "-" + pad(shiftStart.getMonth()+1) + "-" + pad(shiftStart.getDate()) : null)
+      || (new Date().getFullYear() + "-" + pad(new Date().getMonth()+1) + "-" + pad(new Date().getDate()));
+    const todayClosed = days.filter(d => d.date === serverToday && !d.open);
     const live = shiftStart && state !== "LOGGED_OUT";
     if (live){
       const liveProd = liveProdMs();

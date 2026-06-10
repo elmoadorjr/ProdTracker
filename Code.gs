@@ -784,8 +784,19 @@ function emailAgents(body) {
   var includePin = body.includePin !== false; // default true
   var targetId   = body.employeeId ? String(body.employeeId).trim() : null; // optional: single agent
 
+  // emailOverrides: { "EMP01": "email@example.com", ... } — sent from the HTML CONFIG.AGENT_EMAILS
+  // Takes precedence over whatever is in the Employees sheet col D.
+  var overrides = (body.emailOverrides && typeof body.emailOverrides === 'object') ? body.emailOverrides : {};
+
   var employees = getEmployees();
   if (targetId) employees = employees.filter(function(e){ return e.id === targetId; });
+
+  // Apply overrides
+  employees = employees.map(function(emp) {
+    return overrides.hasOwnProperty(emp.id)
+      ? { id: emp.id, name: emp.name, email: String(overrides[emp.id] || '').trim() }
+      : emp;
+  });
 
   var cfg = getConfig();
   var pins = {};

@@ -312,10 +312,14 @@ const CONFIG = {
 };
 
 const root = document.getElementById("root");
+const _now = new Date();
+const _pad = n => String(n).padStart(2,"0");
+const _localDate = _now.getFullYear() + "-" + _pad(_now.getMonth()+1) + "-" + _pad(_now.getDate());
+const _localMonth = _now.getFullYear() + "-" + _pad(_now.getMonth()+1);
 let pin = sessionStorage.getItem("tt_pin") || "";
 let tab = "live";
-let summaryDate = new Date().toISOString().slice(0,10);
-let statsMonth = new Date().toISOString().slice(0,7);
+let summaryDate = _localDate;
+let statsMonth = _localMonth;
 let lastLive = null, lastSummary = null, lastReconcile = null, lastStats = null;
 let employeesCache = null;
 
@@ -331,7 +335,17 @@ const STATE_FROM_EVENT = {
   LOCKER_START:"LOCKER", LOCKER_END:"WORKING"
 };
 const fmtSince = iso => iso ? new Date(iso).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "—";
-const fmtMin = m => m==null?"":m>=60?Math.floor(m/60)+"h "+(m%60)+"m":m+"m";
+const fmtMin = m => m==null?"":m>=60?Math.floor(m/60)+"h "+(String(m%60).padStart(2,"0"))+"m":m+"m";
+let liveTickHandle = null;
+function startLiveTick(){
+  clearInterval(liveTickHandle);
+  liveTickHandle = setInterval(()=>{
+    document.querySelectorAll("td[data-since]").forEach(cell=>{
+      const m = Math.floor((Date.now() - new Date(cell.dataset.since).getTime()) / 60000);
+      cell.textContent = fmtMin(m);
+    });
+  }, 10000);
+}
 const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 async function api(params){
@@ -426,7 +440,7 @@ function renderShell(){
         <button id="tabDirectory">Directory</button>
       </div>
       <input type="date" id="datePick" value="${summaryDate}" style="display:none">
-      <input type="month" id="monthPick" value="${summaryDate.slice(0,7)}" style="display:none">
+      <input type="month" id="monthPick" value="${statsMonth}" style="display:none">
       <button class="btn-ghost" id="exportBtn" style="display:none">Export CSV</button>
       <button class="btn-refresh" id="refreshBtn">↻ Refresh</button>
     </div>
@@ -451,7 +465,7 @@ async function load(){
   document.getElementById("datePick").style.display = usesDate?"":"none";
   document.getElementById("monthPick").style.display = (tab==="stats")?"":"none";
   document.getElementById("exportBtn").style.display = (tab==="summary"||tab==="stats")?"":"none";
-  if (tab !== "live") document.getElementById("heatStrip").style.display = "none";
+  if (tab !== "live"){ clearInterval(liveTickHandle); document.getElementById("heatStrip").style.display = "none"; }
   if (btn){ btn.disabled=true; btn.textContent="Loading…"; }
   try{
     if (tab==="live"){ lastLive = await api({action:"team"}); renderLive(lastLive); }
@@ -506,7 +520,7 @@ function renderLive(data){
         <td><b>${esc(e.name)}</b> <span class="muted" style="font-size:11px">${esc(e.id)}</span></td>
         <td><span class="pill s-${e.state}"><span class="pill-dot"></span>${STATE_LABEL[e.state]}</span></td>
         <td>${fmtSince(e.since)}</td>
-        <td class="num muted">${fmtMin(e.minutesInState)}</td>
+        <td class="num muted" ${e.since ? `data-since="${e.since}"` : ""}>${fmtMin(e.minutesInState)}</td>
         <td class="num">${fmtProd(e)}</td>
         ${tlCell}
         <td class="alerts-cell">${e.alerts.map(esc).join(" · ")||""}</td>
@@ -521,6 +535,7 @@ function renderLive(data){
       </tr></thead>
       <tbody>${rows||`<tr><td colspan="7" class="empty">No employees configured.</td></tr>`}</tbody>
     </table></div>`;
+  startLiveTick();
 }
 
 /* ── Summary ── */
@@ -644,7 +659,7 @@ async function getEmployeesList(){
 async function renderFix(){
   const emps = await getEmployeesList();
   const actions = ["TIME_IN","TIME_OUT","BREAK_START","BREAK_END","LUNCH_START","LUNCH_END","BIO_START","BIO_END","LOCKER_START","LOCKER_END"];
-  const nowLocal = new Date(Date.now() - new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+  const _d = new Date(); const _fxNow = _d.getFullYear()+"-"+_pad(_d.getMonth()+1)+"-"+_pad(_d.getDate())+"T"+_pad(_d.getHours())+":"+_pad(_d.getMinutes());
   document.getElementById("content").innerHTML = `
     <div class="form-card">
       <h3>Add a missed event</h3>
@@ -654,7 +669,7 @@ async function renderFix(){
       <label>Action</label>
       <select id="fxAction">${actions.map(a=>`<option>${a}</option>`).join("")}</select>
       <label>When (your local time)</label>
-      <input type="datetime-local" id="fxTime" value="${nowLocal}">
+      <input type="datetime-local" id="fxTime" value="${_fxNow}">
       <label>Note (why)</label>
       <input type="text" id="fxNote" placeholder="forgot to tap">
       <button class="go" id="fxGo">Add event</button>
