@@ -8,11 +8,6 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Time Tracker</title>
 <style>
-  /* ------------------------------------------------------------------
-     System font stack on purpose: zero webfont latency on call-center
-     Android phones. Personality comes from weight, scale and the
-     full-screen state tint — the screen itself IS the status light.
-  ------------------------------------------------------------------ */
   :root{
     --ink:#101418; --paper:#F6F7F8; --muted:#8A939E; --line:#252C33;
     --working:#1FA463; --break:#E0A53C; --lunch:#E2702E;
@@ -29,7 +24,6 @@
   }
   @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
 
-  /* State tints — body background follows the employee's state */
   body[data-state="WORKING"]{background:#0D2C1D}
   body[data-state="BREAK"]{background:#2E2410}
   body[data-state="LUNCH"]{background:#301A0C}
@@ -40,8 +34,16 @@
   header{
     display:flex; align-items:center; justify-content:space-between;
     padding:14px 18px; font-size:13px; color:var(--muted);
+    border-bottom:1px solid var(--line);
   }
   header .who{font-weight:700; color:var(--paper); letter-spacing:.02em}
+  header .sup-link{
+    font-size:11px; font-weight:700; color:var(--muted); text-decoration:none;
+    padding:4px 10px; border-radius:999px; background:#1C2329;
+    border:1px solid var(--line); transition:color .15s,border-color .15s;
+    white-space:nowrap;
+  }
+  header .sup-link:active{color:var(--paper); border-color:var(--muted)}
   #syncBadge{
     font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px;
     background:#1C2329; color:var(--muted);
@@ -49,13 +51,13 @@
   #syncBadge.offline{background:#4A3413; color:#F4C868}
   #syncBadge.syncing{background:#13304A; color:#7FB8F0}
 
-  main{flex:1; display:flex; flex-direction:column; padding:0 18px 18px; max-width:520px; width:100%; margin:0 auto}
+  main{flex:1; display:flex; flex-direction:column; padding:0 18px 24px; max-width:520px; width:100%; margin:0 auto}
 
-  /* --- Signature: the state card --- */
+  /* ── State card ── */
   .state-card{
-    border-radius:var(--radius); padding:34px 22px 28px; text-align:center;
+    border-radius:var(--radius); padding:28px 22px 24px; text-align:center;
     background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
-    margin-bottom:18px;
+    margin-bottom:16px;
   }
   .state-dot{font-size:15px; letter-spacing:.22em; font-weight:800; text-transform:uppercase}
   .state-dot[data-s="WORKING"]{color:var(--working)} .state-dot[data-s="BREAK"]{color:var(--break)}
@@ -63,20 +65,42 @@
   .state-dot[data-s="LOCKER"]{color:var(--locker)} .state-dot[data-s="LOGGED_OUT"]{color:var(--out)}
   .state-dot[data-s="NOT_STARTED"]{color:var(--idle)}
   .elapsed{
-    font-size:clamp(56px,18vw,84px); font-weight:800; line-height:1.05; margin-top:10px;
+    font-size:clamp(52px,16vw,78px); font-weight:800; line-height:1.05; margin-top:8px;
     font-variant-numeric:tabular-nums; letter-spacing:-.02em;
   }
-  .since{margin-top:6px; font-size:13px; color:var(--muted)}
+  .since{margin-top:4px; font-size:13px; color:var(--muted)}
 
-  /* --- 7h production target panel --- */
+  /* ── Timeline bar (Strava-style) ── */
+  .timeline-wrap{
+    margin-bottom:16px;
+    background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
+    border-radius:14px; padding:14px 16px;
+  }
+  .timeline-label{display:flex;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+  .timeline-bar{height:14px; border-radius:99px; background:rgba(255,255,255,.08); overflow:hidden; display:flex}
+  .timeline-seg{height:100%; transition:width .4s ease; min-width:0}
+  .timeline-seg.WORKING{background:var(--working)}
+  .timeline-seg.BREAK{background:var(--break)}
+  .timeline-seg.LUNCH{background:var(--lunch)}
+  .timeline-seg.BIO{background:var(--bio)}
+  .timeline-seg.LOCKER{background:var(--locker)}
+  .timeline-seg.GAP{background:rgba(255,255,255,.08)}
+  .timeline-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .tl-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)}
+  .tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .tl-dot.WORKING{background:var(--working)} .tl-dot.BREAK{background:var(--break)}
+  .tl-dot.LUNCH{background:var(--lunch)} .tl-dot.BIO{background:var(--bio)}
+  .tl-dot.LOCKER{background:var(--locker)}
+
+  /* ── Production panel ── */
   .prod-panel{
-    border-radius:var(--radius); padding:18px 20px; margin-bottom:18px;
+    border-radius:var(--radius); padding:16px 20px; margin-bottom:16px;
     background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
   }
   .prod-row{display:flex; justify-content:space-between; align-items:baseline}
   .prod-row b{font-size:22px; font-weight:800; font-variant-numeric:tabular-nums}
   .prod-row span{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700}
-  .prod-bar{height:8px; border-radius:99px; background:rgba(255,255,255,.1); margin:12px 0 10px; overflow:hidden}
+  .prod-bar{height:8px; border-radius:99px; background:rgba(255,255,255,.1); margin:10px 0 8px; overflow:hidden}
   .prod-bar i{display:block; height:100%; background:var(--working); border-radius:99px; transition:width 1s linear}
   .prod-bar i.met{background:#3DD68C}
   .prod-bar i.risk{background:var(--out)}
@@ -85,14 +109,14 @@
   .prod-hint.met{color:#5FE3A1}
   .sched-line{margin-top:8px; font-size:12px; color:var(--muted)}
 
-  /* --- floor / break-queue indicator --- */
+  /* ── Floor count ── */
   .floor-line{
     display:flex; align-items:center; justify-content:center; gap:8px;
     font-size:13px; color:var(--muted); margin-bottom:12px; font-weight:600;
   }
   .floor-line b{color:var(--paper)} .floor-line .dot{width:8px;height:8px;border-radius:50%;background:var(--working);display:inline-block}
 
-  /* --- end-of-shift recap --- */
+  /* ── End-of-shift recap ── */
   .recap{border-radius:var(--radius); padding:26px 22px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); text-align:center}
   .recap h2{font-size:18px; font-weight:800; margin-bottom:4px}
   .recap .big{font-size:clamp(44px,14vw,64px); font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.02em; margin:6px 0}
@@ -103,16 +127,44 @@
   .recap .grid b{display:block; font-size:17px; font-variant-numeric:tabular-nums}
   .recap .grid span{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
 
-  /* --- my week --- */
-  .link-btn{background:none; border:none; color:var(--muted); font-family:var(--font); font-size:13px; font-weight:700; cursor:pointer; text-decoration:underline; padding:4px}
-  .week-list{display:flex; flex-direction:column; gap:10px; margin-top:6px}
-  .week-row{display:flex; align-items:center; justify-content:space-between; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:14px 16px}
-  .week-row .d{font-weight:700} .week-row .d small{display:block; color:var(--muted); font-weight:500; font-size:11px}
-  .week-row .h{font-size:19px; font-weight:800; font-variant-numeric:tabular-nums}
-  .week-row .h.met{color:#5FE3A1} .week-row .h.miss{color:#F58A8A}
+  /* ── Stats view (Daily/Weekly/Monthly) ── */
+  .stats-wrap{display:flex;flex-direction:column;gap:0}
+  .stats-tabs{display:flex;background:rgba(255,255,255,.05);border-radius:12px;padding:4px;margin-bottom:16px;border:1px solid var(--line)}
+  .stats-tabs button{
+    flex:1;font-family:var(--font);font-size:13px;font-weight:700;color:var(--muted);
+    background:none;border:none;border-radius:9px;padding:9px 4px;cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  .stats-tabs button.on{background:rgba(255,255,255,.12);color:var(--paper)}
+  .shift-card{
+    background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px;margin-bottom:10px;
+  }
+  .shift-card .sc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .shift-card .sc-date{font-weight:700;font-size:14px}
+  .shift-card .sc-date small{display:block;font-size:11px;color:var(--muted);font-weight:500;margin-top:1px}
+  .shift-card .sc-prod{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+  .shift-card .sc-prod.met{color:#5FE3A1} .shift-card .sc-prod.miss{color:#F58A8A}
+  .shift-card .sc-bar{height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin:8px 0 10px}
+  .shift-card .sc-bar i{display:block;height:100%;border-radius:99px;background:var(--working)}
+  .shift-card .sc-bar i.met{background:#3DD68C} .shift-card .sc-bar i.miss{background:var(--out)}
+  .shift-card .sc-detail{display:flex;flex-wrap:wrap;gap:6px 14px}
+  .shift-card .sc-detail span{font-size:11px;color:var(--muted)}
+  .shift-card .sc-detail b{color:var(--paper)}
+  .shift-tl{margin:10px 0 4px}
 
-  /* --- Actions --- */
-  .actions{display:flex; flex-direction:column; gap:12px; margin-top:auto}
+  /* month card */
+  .month-card{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+  .month-card h3{font-size:15px;font-weight:800;margin-bottom:12px}
+  .month-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .month-stat-grid .ms{background:rgba(255,255,255,.05);border-radius:10px;padding:12px}
+  .month-stat-grid .ms b{display:block;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+  .month-stat-grid .ms span{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+  .hit-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;margin:12px 0 6px}
+  .hit-bar i{display:block;height:100%;border-radius:99px}
+
+  /* ── Actions ── */
+  .actions{display:flex; flex-direction:column; gap:12px; margin-top:auto; padding-top:8px}
   button.action{
     font-family:var(--font); font-size:19px; font-weight:800; letter-spacing:.03em;
     border:none; border-radius:var(--radius); padding:20px; width:100%;
@@ -130,7 +182,30 @@
   .a-RETURN{background:var(--working)}
   .secondary-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px}
 
-  /* --- Toast --- */
+  /* ── Nav row (bottom link buttons) ── */
+  .nav-row{display:flex;justify-content:center;gap:14px;margin-top:16px}
+  .link-btn{background:none; border:none; color:var(--muted); font-family:var(--font); font-size:13px; font-weight:700; cursor:pointer; text-decoration:underline; padding:4px}
+
+  /* ── PIN gate (for TIME IN verification) ── */
+  .pin-gate{
+    position:fixed;inset:0;background:rgba(10,14,18,.92);backdrop-filter:blur(12px);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;padding:24px;z-index:100;
+  }
+  .pin-gate h2{font-size:20px;font-weight:800;text-align:center}
+  .pin-gate p{font-size:13px;color:var(--muted);text-align:center}
+  .pin-row{display:flex;gap:12px}
+  .pin-row input{
+    width:52px;height:64px;font-size:28px;font-weight:700;text-align:center;
+    background:#1C2329;border:2px solid var(--line);border-radius:14px;
+    color:var(--paper);outline:none;caret-color:var(--working);
+    transition:border-color .2s;
+  }
+  .pin-row input:focus{border-color:var(--working)}
+  .pin-err{color:#C84545;font-size:13px;min-height:18px;text-align:center;font-weight:700}
+  .pin-cancel{font-family:var(--font);font-size:14px;font-weight:700;color:var(--muted);background:none;border:none;cursor:pointer;margin-top:4px;text-decoration:underline}
+
+  /* ── Toast ── */
   #toast{
     position:fixed; left:50%; bottom:max(24px, env(safe-area-inset-bottom));
     transform:translate(-50%, 80px); opacity:0;
@@ -140,9 +215,9 @@
     box-shadow:0 8px 30px rgba(0,0,0,.4);
   }
   #toast.show{transform:translate(-50%,0); opacity:1}
-  #toast.warn{background:#F4C868}
+  #toast.warn{background:#F4C868; color:#241A05}
 
-  /* --- Identify screen (dropdown fallback) --- */
+  /* ── Identify/dropdown ── */
   .identify{display:flex; flex-direction:column; gap:14px; margin:auto 0; text-align:center}
   .identify h1{font-size:24px; font-weight:800}
   .identify p{color:var(--muted); font-size:14px}
@@ -151,7 +226,6 @@
     border:1px solid var(--line); background:#1A2026; color:var(--paper); width:100%;
   }
   .identify button{background:var(--working); border:none; font-weight:800; cursor:pointer}
-
   .loading,.error-screen{margin:auto; text-align:center; color:var(--muted); padding:0 24px}
   .error-screen b{color:var(--paper)}
 </style>
@@ -159,21 +233,21 @@
 <body data-state="">
   <header>
     <span class="who" id="whoami">&nbsp;</span>
-    <span id="syncBadge">● online</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <a href="supervisor.html" class="sup-link">Supervisor ›</a>
+      <span id="syncBadge">● online</span>
+    </div>
   </header>
   <main id="app"><div class="loading">Loading…</div></main>
   <div id="toast"></div>
 
 <script>
 "use strict";
-/* =====================================================================
-   CONFIG — paste your Apps Script Web App URL (the /exec one) here
-===================================================================== */
 const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbwcyEGKlsGLzG_HC8quz8vsTfMwqwJxhJ2ARQadAFl7KvZz8yAYzn-j0t1qhd66mV5g7A/exec"
 };
 
-/* ---------- state machine (mirrors the server) ---------- */
+/* ─── State machine ─────────────────────────────────────────────────────── */
 const STATE_FROM_EVENT = {
   TIME_IN:"WORKING", TIME_OUT:"LOGGED_OUT",
   BREAK_START:"BREAK", BREAK_END:"WORKING",
@@ -195,31 +269,34 @@ const STATE_TEXT = {
   NOT_STARTED:"⚪ NOT STARTED", WORKING:"🟢 WORKING", BREAK:"🟡 BREAK", LUNCH:"🟠 LUNCH",
   BIO:"🔵 BIO BREAK", LOCKER:"🟣 LOCKER BREAK", LOGGED_OUT:"🔴 SHIFT COMPLETED"
 };
+const STATE_COLOR = {
+  WORKING:"var(--working)", BREAK:"var(--break)", LUNCH:"var(--lunch)",
+  BIO:"var(--bio)", LOCKER:"var(--locker)", LOGGED_OUT:"var(--out)"
+};
 
-/* ---------- app state ---------- */
+/* ─── App state ─────────────────────────────────────────────────────────── */
 const app = document.getElementById("app");
-let employee = null;                       // {id,name}
+let employee = null;
 let state = "NOT_STARTED";
-let since = null;                          // Date of last event
+let since = null;
 let timerHandle = null;
-
-/* Production accounting for the current shift:
-   prodBaseMs = production accumulated while not currently counting
-   prodAnchor = Date when WORKING started counting (null = paused) */
 let shiftStart = null, prodBaseMs = 0, prodAnchor = null;
 let targets = { minProductionHours: 7, shiftLengthHours: 9 };
 let schedule = [];
-let floor = null;                 // {onFloor, offFloor, loggedIn} from the lightweight endpoint
-let lastRecap = null;             // today's completed shift breakdown for the recap card
-let view = "main";                // "main" | "week"
-let nudged = { midpoint:false };  // so we nudge once per shift, not every second
+let floor = null;
+let lastRecap = null;
+let view = "main";          // "main" | "stats" | "week"
+let statsTab = "weekly";    // "daily" | "weekly" | "monthly"
+let weekData = null;
+let nudged = { midpoint:false };
+let shiftEvents = [];       // [{ts, action}] for the current shift (timeline)
 const liveProdMs = () => prodBaseMs + (prodAnchor ? Date.now() - prodAnchor.getTime() : 0);
 const fmtHM = ms => {
   const m = Math.max(0, Math.round(ms/60000));
   return Math.floor(m/60) + ":" + pad(m%60);
 };
 
-/* ---------- helpers ---------- */
+/* ─── Helpers ───────────────────────────────────────────────────────────── */
 const $ = s => document.querySelector(s);
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
   : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==="x"?r:(r&3|8)).toString(16);}));
@@ -234,7 +311,7 @@ function toast(msg, warn){
 }
 function vibrate(){ if (navigator.vibrate) navigator.vibrate(40); }
 
-/* ---------- offline queue (localStorage) ---------- */
+/* ─── Offline queue ─────────────────────────────────────────────────────── */
 const QKEY = "tt_queue_v1";
 const getQueue  = () => JSON.parse(localStorage.getItem(QKEY) || "[]");
 const setQueue  = q => localStorage.setItem(QKEY, JSON.stringify(q));
@@ -251,7 +328,7 @@ function updateSyncBadge(){
 async function postEvent(ev){
   const res = await fetch(CONFIG.API_URL, {
     method:"POST",
-    headers:{ "Content-Type":"text/plain;charset=utf-8" },   // simple request → no CORS preflight
+    headers:{ "Content-Type":"text/plain;charset=utf-8" },
     body: JSON.stringify({ action:"logEvent", ...ev })
   });
   return res.json();
@@ -264,10 +341,10 @@ async function flushQueue(){
   while (q.length){
     try{
       const r = await postEvent(q[0]);
-      if (r.ok || /not allowed/.test(r.error||"")) q.shift();   // accepted or permanently rejected
+      if (r.ok || /not allowed/.test(r.error||"")) q.shift();
       else break;
       setQueue(q);
-    }catch(_){ break; }                                         // still offline — try again later
+    }catch(_){ break; }
   }
   flushing = false;
   updateSyncBadge();
@@ -276,21 +353,191 @@ window.addEventListener("online", ()=>{ flushQueue(); updateSyncBadge(); });
 window.addEventListener("offline", updateSyncBadge);
 setInterval(flushQueue, 30000);
 
-/* ---------- actions ---------- */
+/* ─── Timeline bar builder ──────────────────────────────────────────────── */
+function buildTimelineSegs(evts, currentState, shiftStartTime, now){
+  // evts: [{ts (ISO), action}] sorted ascending
+  // Returns array of {type, pct}
+  if (!shiftStartTime) return [];
+  const start = new Date(shiftStartTime).getTime();
+  const end = now;
+  const total = Math.max(1, end - start);
+
+  const segments = [];
+  let cursor = start;
+  let curState = "WORKING";
+
+  const push = (type, from, to) => {
+    const w = Math.max(0, Math.min(to, end) - Math.max(from, start));
+    if (w > 0) segments.push({ type, pct: w / total * 100 });
+  };
+
+  for (const ev of evts){
+    const ts = new Date(ev.ts).getTime();
+    if (ts <= start) continue;
+    push(curState, cursor, ts);
+    cursor = ts;
+    curState = STATE_FROM_EVENT[ev.action] || curState;
+  }
+  push(curState, cursor, end);
+  return segments;
+}
+
+function timelineHtml(segments, legendItems){
+  if (!segments.length) return "";
+  const bars = segments.map(s =>
+    `<div class="timeline-seg ${s.type}" style="width:${s.pct.toFixed(2)}%"></div>`
+  ).join("");
+  const legend = (legendItems||[]).map(({type, label}) =>
+    `<span class="tl-item"><span class="tl-dot ${type}"></span>${esc(label)}</span>`
+  ).join("");
+  return `
+    <div class="timeline-wrap">
+      <div class="timeline-label"><span>Shift timeline</span><span id="tlNow">${fmtClock(new Date())}</span></div>
+      <div class="timeline-bar" id="timelineBar">${bars}</div>
+      ${legend ? `<div class="timeline-legend">${legend}</div>` : ""}
+    </div>`;
+}
+
+function updateTimeline(){
+  const bar = $("#timelineBar");
+  const nowEl = $("#tlNow");
+  if (!bar || !shiftStart) return;
+  const segs = buildTimelineSegs(shiftEvents, state, shiftStart, new Date());
+  bar.innerHTML = segs.map(s =>
+    `<div class="timeline-seg ${s.type}" style="width:${s.pct.toFixed(2)}%"></div>`
+  ).join("");
+  if (nowEl) nowEl.textContent = fmtClock(new Date());
+}
+
+/* ─── PIN gate for TIME IN ──────────────────────────────────────────────── */
+// Per-agent PIN stored in localStorage as tt_apin_<id>
+// On first TIME IN ever, no PIN is set — agent sets their own 4-digit PIN
+// On subsequent TIME IN, they must match it
+
+function getAgentPin(id){ return localStorage.getItem("tt_apin_" + id) || null; }
+function setAgentPin(id, pin){ localStorage.setItem("tt_apin_" + id, pin); }
+
+function openPinGate(isNew, onSuccess, onCancel){
+  const existing = document.getElementById("pinGateEl");
+  if (existing) existing.remove();
+
+  const div = document.createElement("div");
+  div.className = "pin-gate";
+  div.id = "pinGateEl";
+  div.innerHTML = `
+    <h2>${isNew ? "Set your PIN" : "Verify your identity"}</h2>
+    <p>${isNew
+      ? "Choose a 4-digit PIN. You'll use this every time you clock in."
+      : "Enter your 4-digit PIN to clock in."}</p>
+    <div class="pin-row" id="pinRowInputs">
+      <input type="password" inputmode="numeric" maxlength="1" id="pg0" autofocus>
+      <input type="password" inputmode="numeric" maxlength="1" id="pg1">
+      <input type="password" inputmode="numeric" maxlength="1" id="pg2">
+      <input type="password" inputmode="numeric" maxlength="1" id="pg3">
+    </div>
+    ${isNew ? `<div id="pg-confirm-label" style="font-size:13px;color:var(--muted);text-align:center;display:none">Confirm your PIN</div>
+    <div class="pin-row" id="pinConfirmRow" style="display:none">
+      <input type="password" inputmode="numeric" maxlength="1" id="pc0">
+      <input type="password" inputmode="numeric" maxlength="1" id="pc1">
+      <input type="password" inputmode="numeric" maxlength="1" id="pc2">
+      <input type="password" inputmode="numeric" maxlength="1" id="pc3">
+    </div>` : ""}
+    <div class="pin-err" id="pgErr"></div>
+    <button class="pin-cancel" id="pgCancel">Cancel</button>`;
+  document.body.appendChild(div);
+
+  const inputs = [0,1,2,3].map(i => document.getElementById("pg" + i));
+  const confirms = isNew ? [0,1,2,3].map(i => document.getElementById("pc" + i)) : [];
+
+  const wireInputs = (arr, onFull) => {
+    arr.forEach((inp, i) => {
+      inp.addEventListener("input", e => {
+        const v = e.target.value.replace(/\D/g,"");
+        e.target.value = v;
+        if (v && i < arr.length - 1) arr[i+1].focus();
+        if (arr.map(x => x.value).join("").length === 4) onFull(arr.map(x => x.value).join(""));
+      });
+      inp.addEventListener("keydown", e => {
+        if (e.key === "Backspace" && !inp.value && i > 0){
+          arr[i-1].focus(); arr[i-1].value = "";
+        }
+      });
+    });
+  };
+
+  const setErr = msg => { document.getElementById("pgErr").textContent = msg; };
+
+  if (!isNew){
+    wireInputs(inputs, pin => {
+      const stored = getAgentPin(employee.id);
+      if (pin === stored){
+        div.remove();
+        onSuccess();
+      } else {
+        setErr("Incorrect PIN. Try again.");
+        inputs.forEach(i => { i.value = ""; });
+        inputs[0].focus();
+      }
+    });
+  } else {
+    let firstPin = null;
+    wireInputs(inputs, pin => {
+      firstPin = pin;
+      document.getElementById("pg-confirm-label").style.display = "";
+      document.getElementById("pinConfirmRow").style.display = "flex";
+      confirms[0].focus();
+    });
+    wireInputs(confirms, pin => {
+      if (pin === firstPin){
+        setAgentPin(employee.id, pin);
+        div.remove();
+        onSuccess();
+      } else {
+        setErr("PINs don't match. Try again.");
+        confirms.forEach(i => { i.value = ""; });
+        inputs.forEach(i => { i.value = ""; });
+        firstPin = null;
+        document.getElementById("pinConfirmRow").style.display = "none";
+        document.getElementById("pg-confirm-label").style.display = "none";
+        inputs[0].focus();
+      }
+    });
+  }
+
+  document.getElementById("pgCancel").addEventListener("click", () => { div.remove(); if (onCancel) onCancel(); });
+}
+
+/* ─── Actions ───────────────────────────────────────────────────────────── */
 async function doAction(eventType){
+  if (eventType === "TIME_IN"){
+    const existingPin = getAgentPin(employee.id);
+    const isNew = !existingPin;
+    openPinGate(isNew, () => performAction(eventType), null);
+    return;
+  }
+  performAction(eventType);
+}
+
+async function performAction(eventType){
   const ev = {
     eventId: uuid(),
     employeeId: employee.id,
     eventType,
     clientTimestamp: new Date().toISOString()
   };
-
-  // Optimistic UI — the screen responds instantly
   const tapTime = new Date();
+
+  // Optimistic UI
   if (prodAnchor){ prodBaseMs += tapTime.getTime() - prodAnchor.getTime(); prodAnchor = null; }
-  if (eventType === "TIME_IN"){ shiftStart = tapTime; prodBaseMs = 0; nudged = { midpoint:false }; }
+  if (eventType === "TIME_IN"){
+    shiftStart = tapTime; prodBaseMs = 0; nudged = { midpoint:false }; lastRecap = null;
+    shiftEvents = [];
+  }
   if (STATE_FROM_EVENT[eventType] === "WORKING") prodAnchor = tapTime;
-  if (eventType === "TIME_OUT"){ prodAnchor = null; lastRecap = null; }
+  if (eventType === "TIME_OUT"){ prodAnchor = null; }
+
+  // Track shift events for timeline
+  if (eventType !== "TIME_IN") shiftEvents.push({ ts: tapTime.toISOString(), action: eventType });
 
   state = STATE_FROM_EVENT[eventType];
   since = tapTime;
@@ -301,11 +548,7 @@ async function doAction(eventType){
   if (navigator.onLine){
     try{
       const r = await postEvent(ev);
-      if (!r.ok && r.state){           // server disagreed (e.g. action from another device)
-        state = r.state; since = null; render();
-        toast("Out of sync — status refreshed", true);
-        return;
-      }
+      if (!r.ok && r.state){ state = r.state; since = null; render(); toast("Out of sync — status refreshed", true); return; }
     }catch(_){ queued = true; }
   } else queued = true;
 
@@ -317,17 +560,16 @@ async function doAction(eventType){
   }
   updateSyncBadge();
 
-  // End-of-shift recap: pull today's completed breakdown for the card
   if (eventType === "TIME_OUT" && navigator.onLine){
     try{
       const w = await fetchJSON(CONFIG.API_URL + "?action=week&id=" + encodeURIComponent(employee.id));
-      if (w.ok && w.days && w.days[0]) { lastRecap = w.days[0]; render(); }
+      if (w.ok && w.days && w.days[0]) { weekData = w; lastRecap = w.days[0]; render(); }
     }catch(_){}
   }
-  if (eventType !== "TIME_IN") refreshFloor();   // floor count changed
+  if (eventType !== "TIME_IN") refreshFloor();
 }
 
-/* ---------- floor / break-queue (lightweight, no PIN) ---------- */
+/* ─── Floor ─────────────────────────────────────────────────────────────── */
 async function refreshFloor(){
   try{
     const r = await fetchJSON(CONFIG.API_URL + "?action=floor");
@@ -339,22 +581,28 @@ function floorHtml(){
   return `<span class="dot"></span><b>${floor.onFloor}</b> on the floor · <b>${floor.offFloor}</b> off`;
 }
 
-/* ---------- rendering ---------- */
+/* ─── Rendering ─────────────────────────────────────────────────────────── */
 function render(){
   document.body.dataset.state = state;
   $("#whoami").textContent = employee ? employee.name + " · " + employee.id : "";
+  if (view === "stats"){ renderStats(); return; }
 
-  if (view === "week"){ renderWeek(); return; }
+  const segs = (shiftStart && state !== "LOGGED_OUT" && state !== "NOT_STARTED")
+    ? buildTimelineSegs(shiftEvents, state, shiftStart, new Date())
+    : [];
 
-  // End-of-shift recap card
+  // End-of-shift recap
   if (state === "LOGGED_OUT" && lastRecap){
     const r = lastRecap, met = r.metTarget;
+    // Build timeline for completed shift
+    const recapSegs = weekData && weekData.days && weekData.days[0] && weekData.days[0].segments
+      ? weekData.days[0].segments : segs;
     app.innerHTML = `
       <section class="recap">
         <h2>Shift complete — ${esc(employee.name.split(" ")[0])}</h2>
         <div class="big ${met?'met':'miss'}">${fmtHrs(r.productionHours)}</div>
         <div class="verdict" style="color:${met?'#5FE3A1':'#F58A8A'}">
-          ${met ? "✓ You hit the "+targets.minProductionHours+"h minimum" : "Below the "+targets.minProductionHours+"h minimum"}
+          ${met ? "✓ Hit the "+targets.minProductionHours+"h minimum" : "Below the "+targets.minProductionHours+"h minimum"}
         </div>
         <div class="grid">
           <div><b>${fmtHrs(r.lunchHours)}</b><span>Lunch</span></div>
@@ -362,30 +610,53 @@ function render(){
           <div><b>${fmtHrs(r.bioHours)}</b><span>Bio</span></div>
           <div><b>${fmtHrs(r.lockerHours)}</b><span>Locker</span></div>
         </div>
-        <div class="sched-line" style="margin-top:16px">${r.timeIn} → ${r.timeOut} · ${fmtHrs(r.loggedHours)} on shift</div>
+        <div class="sched-line" style="margin-top:14px">${r.timeIn} → ${r.timeOut} · ${fmtHrs(r.loggedHours)} on shift</div>
       </section>
       <div class="actions" style="margin-top:18px">
         <button class="action a-TIME_IN" data-ev="TIME_IN">START NEW SHIFT</button>
-        <button class="link-btn" id="weekBtn" style="margin-top:6px">View my week</button>
+      </div>
+      <div class="nav-row">
+        <button class="link-btn" id="statsBtn">📊 My stats</button>
       </div>`;
     bindButtons();
     return;
   }
 
+  // LOGGED_OUT with no recap
+  if (state === "LOGGED_OUT" && !lastRecap){
+    app.innerHTML = `
+      <section class="state-card" aria-live="polite">
+        <div class="state-dot" data-s="LOGGED_OUT">${STATE_TEXT["LOGGED_OUT"]}</div>
+        <div class="elapsed" id="elapsed">--:--:--</div>
+        <div class="since" id="sinceLine"></div>
+      </section>
+      <div class="actions">
+        ${btn("TIME_IN")}
+      </div>
+      <div class="nav-row">
+        <button class="link-btn" id="statsBtn">📊 My stats</button>
+      </div>`;
+    bindButtons();
+    startTimer();
+    return;
+  }
+
   const actions = VALID_ACTIONS[state] || [];
   const isPause = ["BREAK","LUNCH","BIO","LOCKER"].includes(state);
-
   let buttonsHtml = "";
   if (state === "WORKING"){
-    buttonsHtml = `
-      <div class="secondary-grid">
-        ${btn("BREAK_START")}${btn("LUNCH_START")}
-        ${btn("BIO_START")}${btn("LOCKER_START")}
-      </div>
-      ${btn("TIME_OUT")}`;
+    buttonsHtml = `<div class="secondary-grid">
+      ${btn("BREAK_START")}${btn("LUNCH_START")}
+      ${btn("BIO_START")}${btn("LOCKER_START")}
+    </div>${btn("TIME_OUT")}`;
   } else {
     buttonsHtml = actions.map(a => btn(a, isPause ? "a-RETURN" : "")).join("");
   }
+
+  // Build legend for timeline
+  const usedTypes = [...new Set(segs.map(s => s.type))].filter(t => t !== "WORKING");
+  const TLLABELS = { BREAK:"Break", LUNCH:"Lunch", BIO:"Bio", LOCKER:"Locker" };
+  const legendItems = [{ type:"WORKING", label:"Working" }, ...usedTypes.map(t => ({ type:t, label:TLLABELS[t]||t }))];
 
   app.innerHTML = `
     <section class="state-card" aria-live="polite">
@@ -393,6 +664,7 @@ function render(){
       <div class="elapsed" id="elapsed">--:--:--</div>
       <div class="since" id="sinceLine"></div>
     </section>
+    ${shiftStart && state !== "NOT_STARTED" ? timelineHtml(segs, legendItems) : ""}
     ${shiftStart && state !== "LOGGED_OUT" && state !== "NOT_STARTED" ? `
     <section class="prod-panel">
       <div class="prod-row">
@@ -405,7 +677,9 @@ function render(){
     </section>` : ""}
     ${state === "WORKING" ? `<div class="floor-line" id="floorLine">${floorHtml()}</div>` : ""}
     <div class="actions">${buttonsHtml}</div>
-    ${(state !== "NOT_STARTED") ? `<button class="link-btn" id="weekBtn" style="margin:14px auto 0;display:block">View my week</button>` : ""}`;
+    ${state !== "NOT_STARTED" ? `<div class="nav-row">
+      <button class="link-btn" id="statsBtn">📊 My stats</button>
+    </div>` : ""}`;
 
   bindButtons();
   startTimer();
@@ -415,54 +689,148 @@ function render(){
 function bindButtons(){
   app.querySelectorAll("button.action").forEach(b =>
     b.addEventListener("click", () => doAction(b.dataset.ev)));
-  const wb = $("#weekBtn");
-  if (wb) wb.addEventListener("click", () => { view = "week"; openWeek(); });
+  const sb = $("#statsBtn");
+  if (sb) sb.addEventListener("click", () => { view = "stats"; openStats(); });
 }
 
-/* ---------- my week ---------- */
-let weekData = null;
-async function openWeek(){
-  app.innerHTML = `<div class="loading">Loading your week…</div>`;
+/* ─── Stats view ────────────────────────────────────────────────────────── */
+async function openStats(){
+  app.innerHTML = `<div class="loading">Loading your stats…</div>`;
   try{
     const w = await fetchJSON(CONFIG.API_URL + "?action=week&id=" + encodeURIComponent(employee.id));
-    if (w.ok){ weekData = w; }
+    if (w.ok) weekData = w;
   }catch(_){}
-  renderWeek();
+  renderStats();
 }
-function renderWeek(){
+
+function renderStats(){
   clearInterval(timerHandle);
-  const rows = (weekData && weekData.days || []).map(d=>{
-    const cls = d.open ? "" : (d.metTarget ? "met" : "miss");
-    const dt = new Date(d.date + "T00:00:00");
-    return `<div class="week-row">
-      <div class="d">${dt.toLocaleDateString([], {weekday:"short"})}
-        <small>${dt.toLocaleDateString([], {month:"short", day:"numeric"})} · ${d.timeIn}→${d.timeOut}</small></div>
-      <div class="h ${cls}">${fmtHrs(d.productionHours)}${d.open?' <small style="color:var(--muted)">(open)</small>':(d.metTarget?' ✓':'')}</div>
-    </div>`;
-  }).join("");
-  app.innerHTML = `
+  const days = (weekData && weekData.days) || [];
+  const targetH = (weekData && weekData.targetHours) || targets.minProductionHours;
+
+  // Tab switcher
+  const tabs = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <h2 style="font-size:18px;font-weight:800">Last 7 shifts</h2>
+      <h2 style="font-size:18px;font-weight:800">📊 My Stats</h2>
       <button class="link-btn" id="backBtn">← Back</button>
     </div>
-    <div class="week-list">${rows || `<div class="week-row"><div class="d">No shifts yet</div></div>`}</div>`;
-  $("#backBtn").addEventListener("click", ()=>{ view = "main"; render(); });
+    <div class="stats-tabs">
+      <button class="${statsTab==="daily"?"on":""}" data-tab="daily">Today</button>
+      <button class="${statsTab==="weekly"?"on":""}" data-tab="weekly">This week</button>
+      <button class="${statsTab==="monthly"?"on":""}" data-tab="monthly">Monthly</button>
+    </div>`;
+
+  let content = "";
+
+  if (statsTab === "daily"){
+    // Today's shift — use most recent (index 0) or live data
+    const today = days[0] || null;
+    if (!today){
+      content = `<div style="text-align:center;color:var(--muted);padding:32px 0;font-size:14px">No shift recorded yet today.</div>`;
+    } else {
+      content = shiftCardHtml(today, targetH, true);
+    }
+    // If there's a live shift, show the live production too
+    if (shiftStart && state !== "LOGGED_OUT"){
+      const liveProd = liveProdMs();
+      const livePct = Math.min(100, liveProd / (targetH * 3600000) * 100);
+      content = `
+        <div class="shift-card" style="border-color:rgba(31,164,99,.4)">
+          <div class="sc-top">
+            <div class="sc-date">Live shift<small>${fmtClock(shiftStart)} → now</small></div>
+            <div class="sc-prod ${liveProd >= targetH*3600000 ? 'met' : ''}">${fmtHM(liveProd)}</div>
+          </div>
+          <div class="sc-bar"><i class="${livePct >= 100 ? 'met' : ''}" style="width:${livePct.toFixed(1)}%"></i></div>
+          <div class="timeline-bar shift-tl" style="height:10px">${
+            buildTimelineSegs(shiftEvents, state, shiftStart, new Date())
+              .map(s => `<div class="timeline-seg ${s.type}" style="width:${s.pct.toFixed(2)}%"></div>`).join("")
+          }</div>
+          <div class="sc-detail">
+            <span>Target: <b>${targetH}h</b></span>
+            <span>Status: <b style="color:${STATE_COLOR[state]||'inherit'}">${state}</b></span>
+          </div>
+        </div>` + (today ? `<div style="font-size:12px;color:var(--muted);text-align:center;margin-bottom:8px">Previous shifts today:</div>` + shiftCardHtml(today, targetH, false) : "");
+    }
+  } else if (statsTab === "weekly"){
+    if (!days.length){
+      content = `<div style="text-align:center;color:var(--muted);padding:32px 0;font-size:14px">No shifts in the last 7 days.</div>`;
+    } else {
+      content = days.map(d => shiftCardHtml(d, targetH, false)).join("");
+    }
+  } else if (statsTab === "monthly"){
+    content = monthlyStatsHtml(days, targetH);
+  }
+
+  app.innerHTML = tabs + `<div class="stats-wrap">${content}</div>`;
+  app.querySelectorAll(".stats-tabs button").forEach(b => {
+    b.addEventListener("click", () => { statsTab = b.dataset.tab; renderStats(); });
+  });
+  const back = $("#backBtn");
+  if (back) back.addEventListener("click", () => { view = "main"; render(); });
 }
-const fmtHrs = h => Math.floor(h) + ":" + pad(Math.round((h - Math.floor(h)) * 60));
-function btn(eventType, extraClass){
-  return `<button class="action a-${eventType} ${extraClass||""}" data-ev="${eventType}">${LABELS[eventType]}</button>`;
+
+function shiftCardHtml(d, targetH, isToday){
+  const met = !d.open && d.productionHours >= targetH;
+  const miss = !d.open && !met;
+  const pct = Math.min(100, d.productionHours / targetH * 100);
+  const dt = d.date ? new Date(d.date + "T00:00:00") : new Date();
+  const dayLabel = isToday ? "Today" : dt.toLocaleDateString([], {weekday:"short", month:"short", day:"numeric"});
+  return `
+    <div class="shift-card">
+      <div class="sc-top">
+        <div class="sc-date">${dayLabel}<small>${d.timeIn}→${d.timeOut}${d.open?' (open)':''}</small></div>
+        <div class="sc-prod ${met?'met':(miss?'miss':'')}">${fmtHrs(d.productionHours)}${met?' ✓':''}</div>
+      </div>
+      <div class="sc-bar"><i class="${met?'met':(miss?'miss':'')}" style="width:${pct.toFixed(1)}%"></i></div>
+      <div class="sc-detail">
+        <span>Break: <b>${fmtHrs(d.breakHours)}</b></span>
+        <span>Lunch: <b>${fmtHrs(d.lunchHours)}</b></span>
+        <span>Bio: <b>${fmtHrs(d.bioHours)}</b></span>
+        <span>On shift: <b>${fmtHrs(d.loggedHours)}</b></span>
+      </div>
+    </div>`;
 }
+
+function monthlyStatsHtml(days, targetH){
+  if (!days.length) return `<div style="text-align:center;color:var(--muted);padding:32px 0;font-size:14px">No shifts recorded yet.</div>`;
+  const completed = days.filter(d => !d.open);
+  const metCount = completed.filter(d => d.productionHours >= targetH).length;
+  const hitRate = completed.length ? Math.round(metCount / completed.length * 100) : 0;
+  const avgProd = completed.length
+    ? completed.reduce((s, d) => s + d.productionHours, 0) / completed.length : 0;
+  const totalProd = days.reduce((s, d) => s + d.productionHours, 0);
+  const avgBreak = completed.length
+    ? completed.reduce((s,d) => s + d.breakHours + d.lunchHours + d.bioHours, 0) / completed.length : 0;
+  const hitColor = hitRate >= 80 ? "var(--working)" : hitRate >= 50 ? "var(--break)" : "var(--out)";
+
+  return `
+    <div class="month-card">
+      <h3>Last ${days.length} shifts</h3>
+      <div class="month-stat-grid">
+        <div class="ms"><b>${days.length}</b><span>Shifts</span></div>
+        <div class="ms"><b style="color:${hitColor}">${hitRate}%</b><span>${targetH}h hit rate</span></div>
+        <div class="ms"><b>${fmtHrs(avgProd)}</b><span>Avg production</span></div>
+        <div class="ms"><b>${fmtHrs(totalProd)}</b><span>Total production</span></div>
+      </div>
+      <div class="hit-bar"><i style="width:${hitRate}%;background:${hitColor}"></i></div>
+      <div style="font-size:12px;color:var(--muted)">${metCount} of ${completed.length} shifts hit ${targetH}h · avg non-prod: ${fmtHrs(avgBreak)}/shift</div>
+    </div>
+    ${days.map(d => shiftCardHtml(d, targetH, false)).join("")}`;
+}
+
+/* ─── Timer & production panel ──────────────────────────────────────────── */
 function startTimer(){
   clearInterval(timerHandle);
   const el = $("#elapsed"), line = $("#sinceLine");
   const tick = () => {
-    if (!since){ el.textContent = "00:00:00"; line.textContent = ""; }
+    if (!since){ if(el) el.textContent = "00:00:00"; if(line) line.textContent = ""; }
     else {
       const s = Math.max(0, Math.floor((Date.now() - since.getTime())/1000));
-      el.textContent = pad(Math.floor(s/3600)) + ":" + pad(Math.floor(s/60)%60) + ":" + pad(s%60);
-      line.textContent = "since " + fmtClock(since);
+      if(el) el.textContent = pad(Math.floor(s/3600)) + ":" + pad(Math.floor(s/60)%60) + ":" + pad(s%60);
+      if(line) line.textContent = "since " + fmtClock(since);
     }
     updateProdPanel();
+    updateTimeline();
   };
   tick();
   timerHandle = setInterval(tick, 1000);
@@ -474,14 +842,10 @@ function updateProdPanel(){
   const targetMs = targets.minProductionHours * 3600000;
   const prod = liveProdMs();
   const bar = $("#prodBar"), hint = $("#prodHint");
-
   prodEl.textContent = fmtHM(prod);
   bar.style.width = Math.min(100, prod/targetMs*100) + "%";
-
   const schedEnd = shiftStart.getTime() + targets.shiftLengthHours * 3600000;
-  // Break budget: pause time you can still take and hit the target by scheduled shift end
   const budget = (schedEnd - Date.now()) - (targetMs - prod);
-
   if (prod >= targetMs){
     bar.className = "met"; hint.className = "prod-hint met";
     hint.textContent = "✓ " + targets.minProductionHours + "h target met";
@@ -491,11 +855,8 @@ function updateProdPanel(){
     hint.textContent = "Past budget — stay until " + fmtClock(doneAt) + " to hit " + targets.minProductionHours + "h";
   } else {
     bar.className = ""; hint.className = "prod-hint" + (budget < 15*60000 ? " risk" : "");
-    hint.textContent = "Break budget left: " + fmtHM(budget) + " · hit " + targets.minProductionHours + "h by " +
-      fmtClock(new Date(schedEnd)) + " if breaks stay under it";
+    hint.textContent = "Break budget: " + fmtHM(budget) + " · hit " + targets.minProductionHours + "h by " + fmtClock(new Date(schedEnd));
   }
-
-  // One-time midpoint nudge: past the halfway mark and pace won't make target
   const elapsed = Date.now() - shiftStart.getTime();
   const halfShift = targets.shiftLengthHours * 3600000 / 2;
   if (!nudged.midpoint && elapsed > halfShift && state === "WORKING" && budget < 0){
@@ -505,7 +866,7 @@ function updateProdPanel(){
   }
 }
 
-/* ---------- identification ---------- */
+/* ─── Identification ────────────────────────────────────────────────────── */
 async function fetchJSON(url){
   const r = await fetch(url);
   return r.json();
@@ -515,16 +876,14 @@ async function identify(){
   const urlId = new URLSearchParams(location.search).get("id");
   if (urlId) return resolveEmployee(urlId.trim());
 
-  // Dropdown fallback
   let list = JSON.parse(localStorage.getItem("tt_employees") || "null");
   try{
     const r = await fetchJSON(CONFIG.API_URL + "?action=employees");
     if (r.ok){ list = r.employees; localStorage.setItem("tt_employees", JSON.stringify(list)); }
-  }catch(_){ /* use cached list offline */ }
+  }catch(_){}
 
   if (!list || !list.length){
-    app.innerHTML = `<div class="error-screen"><b>Can't load the employee list.</b><br><br>
-      Check your connection and reload, or open your personal link (…?id=YOUR_ID).</div>`;
+    app.innerHTML = `<div class="error-screen"><b>Can't load the employee list.</b><br><br>Check your connection and reload, or open your personal link (…?id=YOUR_ID).</div>`;
     return;
   }
   app.innerHTML = `
@@ -544,7 +903,6 @@ async function identify(){
 }
 
 async function resolveEmployee(id){
-  // Show cached state immediately, then reconcile with the server
   const cachedList = JSON.parse(localStorage.getItem("tt_employees") || "[]");
   const cachedEmp = cachedList.find(e=>e.id===id);
   const cachedState = JSON.parse(localStorage.getItem("tt_state_" + id) || "null");
@@ -562,7 +920,6 @@ async function resolveEmployee(id){
     employee = r.employee;
     targets = r.targets || targets;
     schedule = r.schedule || [];
-    // Only adopt the server state if nothing is waiting to sync
     if (getQueue().filter(q=>q.employeeId===id).length === 0){
       state = r.state;
       since = r.since ? new Date(r.since) : null;
@@ -584,10 +941,16 @@ async function resolveEmployee(id){
   updateSyncBadge();
 }
 
-/* ---------- boot ---------- */
+/* ─── Helpers ───────────────────────────────────────────────────────────── */
+const fmtHrs = h => Math.floor(h) + ":" + pad(Math.round((h - Math.floor(h)) * 60));
+function btn(eventType, extraClass){
+  return `<button class="action a-${eventType} ${extraClass||""}" data-ev="${eventType}">${LABELS[eventType]}</button>`;
+}
+
+/* ─── Boot ──────────────────────────────────────────────────────────────── */
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 if (CONFIG.API_URL.startsWith("PASTE")){
-  app.innerHTML = `<div class="error-screen"><b>Setup needed:</b><br><br>Open index.html and paste your Apps Script Web App URL into CONFIG.API_URL.</div>`;
+  app.innerHTML = `<div class="error-screen"><b>Setup needed:</b><br><br>Paste your Apps Script URL into CONFIG.API_URL in index.html.</div>`;
 } else {
   updateSyncBadge();
   flushQueue();

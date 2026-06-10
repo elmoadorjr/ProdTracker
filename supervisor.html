@@ -16,17 +16,21 @@
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   body{font-family:var(--font); background:var(--ink); color:var(--paper); min-height:100dvh}
-  main{max-width:1080px; margin:0 auto; padding:18px}
+  main{max-width:1100px; margin:0 auto; padding:18px}
 
   header{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px}
   h1{font-size:20px; font-weight:800; letter-spacing:.01em}
   .stamp{font-size:12px; color:var(--muted)}
 
-  .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:16px}
-  .tabs{display:flex; background:var(--panel); border-radius:12px; padding:4px; border:1px solid var(--line)}
+  .toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px}
+  .tabs{
+    display:flex; background:var(--panel); border-radius:12px; padding:4px;
+    border:1px solid var(--line); flex-wrap:wrap; gap:2px;
+  }
   .tabs button{
-    font-family:var(--font); font-size:14px; font-weight:700; color:var(--muted);
-    background:none; border:none; border-radius:9px; padding:9px 16px; cursor:pointer;
+    font-family:var(--font); font-size:13px; font-weight:700; color:var(--muted);
+    background:none; border:none; border-radius:9px; padding:9px 14px; cursor:pointer;
+    white-space:nowrap;
   }
   .tabs button.on{background:var(--paper); color:var(--ink)}
   input[type=date]{
@@ -41,8 +45,8 @@
   .refresh:active{transform:scale(.97)}
   .refresh:disabled{opacity:.5}
 
-  /* metric chips */
-  .chips{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:16px}
+  /* chips */
+  .chips{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:16px}
   .chip{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px}
   .chip b{display:block; font-size:26px; font-weight:800; font-variant-numeric:tabular-nums}
   .chip span{font-size:12px; color:var(--muted)}
@@ -74,12 +78,12 @@
 
   /* table */
   .tablewrap{background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow-x:auto}
-  table{width:100%; border-collapse:collapse; font-size:14px; min-width:560px}
+  table{width:100%; border-collapse:collapse; font-size:14px; min-width:520px}
   th{
     text-align:left; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
     color:var(--muted); padding:12px 14px; border-bottom:1px solid var(--line); white-space:nowrap;
   }
-  td{padding:12px 14px; border-bottom:1px solid var(--line); white-space:nowrap; font-variant-numeric:tabular-nums}
+  td{padding:11px 14px; border-bottom:1px solid var(--line); white-space:nowrap; font-variant-numeric:tabular-nums}
   tr:last-child td{border-bottom:none}
   tr.flagged td:first-child{box-shadow:inset 3px 0 0 var(--alert)}
   .num{text-align:right}
@@ -90,9 +94,32 @@
   .s-LUNCH i{background:var(--lunch)}     .s-BIO i{background:var(--bio)}
   .s-LOCKER i{background:var(--locker)}   .s-LOGGED_OUT i{background:var(--out)}
   .s-NOT_STARTED i{background:var(--idle)}
-  .alerts{color:var(--alert); font-size:12px; font-weight:700; white-space:normal; max-width:260px}
+  .alerts{color:var(--alert); font-size:12px; font-weight:700; white-space:normal; max-width:220px}
   .muted{color:var(--muted)}
   .empty{padding:28px; text-align:center; color:var(--muted)}
+
+  /* shift timeline in table */
+  .tl-cell{min-width:100px; width:130px}
+  .tl-mini{height:8px; border-radius:99px; background:rgba(255,255,255,.08); overflow:hidden; display:flex}
+  .tl-seg{height:100%; min-width:0}
+  .tl-seg.WORKING{background:var(--working)} .tl-seg.BREAK{background:var(--break)}
+  .tl-seg.LUNCH{background:var(--lunch)} .tl-seg.BIO{background:var(--bio)}
+  .tl-seg.LOCKER{background:var(--locker)} .tl-seg.GAP{background:rgba(255,255,255,.08)}
+  .tl-time{font-size:10px;color:var(--muted);margin-top:3px;white-space:nowrap}
+
+  /* PIN tab */
+  .pin-table td.pin-val{
+    font-size:17px;font-weight:800;letter-spacing:.3em;font-variant-numeric:tabular-nums;
+    color:var(--paper);
+  }
+  .pin-table td.pin-val.hidden-pin{filter:blur(5px);cursor:pointer;transition:filter .2s}
+  .pin-table td.pin-val.hidden-pin:hover{filter:blur(2px)}
+  .pin-table td.pin-val.revealed{filter:none;cursor:default}
+  .pin-note{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5}
+  .reveal-all{
+    font-family:var(--font);font-size:13px;font-weight:800;color:var(--paper);
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer;margin-bottom:12px;
+  }
 
   /* PIN gate */
   .gate{max-width:340px; margin:18vh auto 0; text-align:center; display:flex; flex-direction:column; gap:12px; padding:0 18px}
@@ -114,14 +141,11 @@
 <main id="root"></main>
 <script>
 "use strict";
-/* ============================================================
-   CONFIG — same Apps Script Web App URL as index.html
-============================================================ */
 const CONFIG = { API_URL: "https://script.google.com/macros/s/AKfycbwcyEGKlsGLzG_HC8quz8vsTfMwqwJxhJ2ARQadAFl7KvZz8yAYzn-j0t1qhd66mV5g7A/exec" };
 
 const root = document.getElementById("root");
 let pin = sessionStorage.getItem("tt_pin") || "";
-let tab = "live";                 // live | summary | reconcile | stats | fix
+let tab = "live";
 let summaryDate = new Date().toISOString().slice(0,10);
 let statsMonth = new Date().toISOString().slice(0,7);
 let lastLive = null, lastSummary = null, lastReconcile = null, lastStats = null;
@@ -130,6 +154,13 @@ let employeesCache = null;
 const STATE_LABEL = {
   WORKING:"Working", BREAK:"Break", LUNCH:"Lunch", BIO:"Bio Break",
   LOCKER:"Locker Break", LOGGED_OUT:"Logged Out", NOT_STARTED:"Not Started"
+};
+const STATE_FROM_EVENT = {
+  TIME_IN:"WORKING", TIME_OUT:"LOGGED_OUT",
+  BREAK_START:"BREAK", BREAK_END:"WORKING",
+  LUNCH_START:"LUNCH", LUNCH_END:"WORKING",
+  BIO_START:"BIO", BIO_END:"WORKING",
+  LOCKER_START:"LOCKER", LOCKER_END:"WORKING"
 };
 const fmtSince = iso => iso ? new Date(iso).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "—";
 const fmtMin = m => m==null ? "" : (m>=60 ? Math.floor(m/60)+"h "+(m%60)+"m" : m+"m");
@@ -144,7 +175,37 @@ async function api(params){
   return data;
 }
 
-/* ---------------- PIN gate ---------------- */
+/* ─── Mini shift timeline ─────────────────────────────────────────────── */
+function buildMiniTimeline(shiftStartIso, shiftEndIso, eventsArr){
+  // eventsArr: [{ts, action}] sorted asc (from team status — only provided for open shifts)
+  if (!shiftStartIso) return "";
+  const start = new Date(shiftStartIso).getTime();
+  const end = shiftEndIso ? new Date(shiftEndIso).getTime() : Date.now();
+  const total = Math.max(1, end - start);
+  const fmtT = iso => new Date(iso).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+
+  const segs = [];
+  let cursor = start;
+  let curState = "WORKING";
+  for (const ev of (eventsArr||[])){
+    const ts = new Date(ev.ts).getTime();
+    if (ts <= start) continue;
+    const w = Math.max(0, Math.min(ts, end) - cursor);
+    if (w > 0) segs.push({ type: curState, pct: w/total*100 });
+    cursor = ts;
+    curState = STATE_FROM_EVENT[ev.action] || curState;
+  }
+  const remaining = Math.max(0, end - cursor);
+  if (remaining > 0) segs.push({ type: curState, pct: remaining/total*100 });
+
+  const bars = segs.map(s => `<div class="tl-seg ${s.type}" style="width:${s.pct.toFixed(1)}%"></div>`).join("");
+  return `<td class="tl-cell">
+    <div class="tl-mini">${bars}</div>
+    <div class="tl-time">${fmtT(shiftStartIso)}</div>
+  </td>`;
+}
+
+/* ─── PIN gate ────────────────────────────────────────────────────────── */
 function renderGate(err){
   root.innerHTML = `
     <div class="gate">
@@ -158,17 +219,17 @@ function renderGate(err){
   const go = async () => {
     pin = input.value.trim();
     try{
-      await api({action:"team"});            // validates the PIN server-side
+      await api({action:"team"});
       sessionStorage.setItem("tt_pin", pin);
       renderShell(); load();
-    }catch(e){ /* renderGate already called on bad PIN */ }
+    }catch(e){}
   };
   document.getElementById("pinGo").addEventListener("click", go);
   input.addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
   input.focus();
 }
 
-/* ---------------- shell ---------------- */
+/* ─── Shell ───────────────────────────────────────────────────────────── */
 function renderShell(){
   root.innerHTML = `
     <header>
@@ -182,6 +243,7 @@ function renderShell(){
         <button id="tabReconcile">Reconcile</button>
         <button id="tabStats">Stats</button>
         <button id="tabFix">Corrections</button>
+        <button id="tabPins">🔑 Pins</button>
       </div>
       <input type="date" id="datePick" value="${summaryDate}" style="display:none">
       <input type="month" id="monthPick" value="${summaryDate.slice(0,7)}" style="display:none">
@@ -189,8 +251,10 @@ function renderShell(){
       <button class="refresh" id="refreshBtn">↻ Refresh</button>
     </div>
     <div id="content"><div class="empty">Loading…</div></div>`;
+
   const T = (id,name)=>document.getElementById(id).addEventListener("click", ()=>{ tab=name; load(); });
-  T("tabLive","live"); T("tabSummary","summary"); T("tabReconcile","reconcile"); T("tabStats","stats"); T("tabFix","fix");
+  T("tabLive","live"); T("tabSummary","summary"); T("tabReconcile","reconcile");
+  T("tabStats","stats"); T("tabFix","fix"); T("tabPins","pins");
   document.getElementById("refreshBtn").addEventListener("click", load);
   document.getElementById("exportBtn").addEventListener("click", exportCSV);
   document.getElementById("datePick").addEventListener("change", e=>{ summaryDate=e.target.value; load(); });
@@ -199,8 +263,9 @@ function renderShell(){
 
 async function load(){
   const btn = document.getElementById("refreshBtn");
-  ["Live","Summary","Reconcile","Stats","Fix"].forEach(n=>{
-    document.getElementById("tab"+n).className = (tab===n.toLowerCase())?"on":"";
+  ["Live","Summary","Reconcile","Stats","Fix","Pins"].forEach(n=>{
+    const el = document.getElementById("tab"+n);
+    if (el) el.className = (tab===n.toLowerCase())?"on":"";
   });
   const usesDate = (tab==="summary"||tab==="reconcile");
   document.getElementById("datePick").style.display = usesDate ? "" : "none";
@@ -212,16 +277,17 @@ async function load(){
     else if (tab==="summary"){ lastSummary = await api({action:"summary", date:summaryDate}); renderSummary(lastSummary); }
     else if (tab==="reconcile"){ lastReconcile = await api({action:"reconcile", date:summaryDate}); renderReconcile(lastReconcile); }
     else if (tab==="stats"){ lastStats = await api({action:"stats", month:statsMonth}); renderStats(lastStats); }
-    else if (tab==="fix"){ renderFix(); }
+    else if (tab==="fix"){ await renderFix(); }
+    else if (tab==="pins"){ await renderPins(); }
     document.getElementById("stamp").textContent = "Updated " + new Date().toLocaleTimeString();
   }catch(e){
     if (e.message!=="pin")
-      document.getElementById("content").innerHTML = `<div class="empty">Couldn't load data: ${esc(e.message)}. Check your connection and refresh.</div>`;
+      document.getElementById("content").innerHTML = `<div class="empty">Couldn't load data: ${esc(e.message)}. Check connection and refresh.</div>`;
   }
   if (document.getElementById("refreshBtn")){ btn.disabled = false; btn.textContent = "↻ Refresh"; }
 }
 
-/* ---------------- live view ---------------- */
+/* ─── Live view ───────────────────────────────────────────────────────── */
 function renderLive(data){
   const t = data.team;
   const count = s => t.filter(e=>e.state===s).length;
@@ -229,11 +295,11 @@ function renderLive(data){
 
   const chips = `
     <div class="chips">
-      <div class="chip floor"><b>${data.floor.onFloor}<span style="font-size:14px;color:var(--muted)"> / ${loggedIn}</span></b><span>On the floor now</span></div>
-      <div class="chip"><b>${data.floor.offFloor}</b><span>Off floor (break/lunch/bio)</span></div>
+      <div class="chip floor"><b>${data.floor.onFloor}<span style="font-size:14px;color:#6DC49A"> / ${loggedIn}</span></b><span>On the floor now</span></div>
+      <div class="chip"><b>${data.floor.offFloor}</b><span>Off floor</span></div>
       <div class="chip"><b>${count("LUNCH")}</b><span>On lunch</span></div>
       <div class="chip"><b>${t.filter(e=>e.targetMet).length}</b><span>Hit ${data.targetHours}h target</span></div>
-      <div class="chip"><b>${t.filter(e=>e.alerts.length).length}</b><span>Alerts</span></div>
+      <div class="chip"><b style="color:${t.filter(e=>e.alerts.length).length?"var(--alert)":"inherit"}">${t.filter(e=>e.alerts.length).length}</b><span>Alerts</span></div>
     </div>`;
 
   const fmtProd = e => {
@@ -242,26 +308,32 @@ function renderLive(data){
     const txt = Math.floor(m/60) + "h " + String(m%60).padStart(2,"0") + "m";
     return e.targetMet ? `<b style="color:var(--working)">${txt} ✓</b>` : `<b>${txt}</b> <span class="muted">/ ${data.targetHours}h</span>`;
   };
+
   const rows = t
     .sort((a,b)=> (b.alerts.length-a.alerts.length) || a.name.localeCompare(b.name))
-    .map(e=>`
+    .map(e=>{
+      const tlCell = (e.shiftStart)
+        ? buildMiniTimeline(e.shiftStart, e.state === "LOGGED_OUT" ? e.since : null, e.shiftEvents || [])
+        : `<td class="tl-cell muted" style="font-size:11px">—</td>`;
+      return `
       <tr class="${e.alerts.length?'flagged':''}">
         <td><b>${esc(e.name)}</b> <span class="muted">${esc(e.id)}</span></td>
         <td><span class="pill s-${e.state}"><i></i>${STATE_LABEL[e.state]}</span></td>
         <td>${fmtSince(e.since)}</td>
         <td class="num muted">${fmtMin(e.minutesInState)}</td>
         <td class="num">${fmtProd(e)}</td>
+        ${tlCell}
         <td class="alerts">${e.alerts.map(esc).join(" · ")||""}</td>
-      </tr>`).join("");
+      </tr>`;}).join("");
 
   document.getElementById("content").innerHTML = chips + `
     <div class="tablewrap"><table>
-      <thead><tr><th>Employee</th><th>Status</th><th>Since</th><th>For</th><th class="num">Production</th><th>Alerts</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="empty">No employees configured yet.</td></tr>`}</tbody>
+      <thead><tr><th>Employee</th><th>Status</th><th>Since</th><th>For</th><th class="num">Production</th><th>Timeline</th><th>Alerts</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="empty">No employees configured.</td></tr>`}</tbody>
     </table></div>`;
 }
 
-/* ---------------- summary view ---------------- */
+/* ─── Summary view ────────────────────────────────────────────────────── */
 function renderSummary(data){
   const r = data.rows, t = data.totals;
   const chips = `
@@ -270,14 +342,12 @@ function renderSummary(data){
       <div class="chip"><b>${t.avgProductionHours}h</b><span>Avg production</span></div>
       <div class="chip"><b>${t.totalNonProductionHours}h</b><span>Total non-production</span></div>
     </div>`;
-
   const rows = r
     .sort((a,b)=> (b.alerts.length-a.alerts.length) || a.employeeName.localeCompare(b.employeeName))
     .map(e=>{
       const met = e.productionHours >= (data.targetHours||7);
       const prodCell = `<b style="color:${met?'var(--working)':(e.open?'inherit':'var(--alert)')}">${e.productionHours}h${met?' ✓':''}</b>`;
-      return `
-      <tr class="${e.alerts.length?'flagged':''}">
+      return `<tr class="${e.alerts.length?'flagged':''}">
         <td><b>${esc(e.employeeName)}</b> <span class="muted">${esc(e.employeeId)}</span></td>
         <td>${e.timeIn} → ${e.timeOut}${e.open?' <span class="muted">(open)</span>':''}</td>
         <td class="num">${prodCell}</td>
@@ -287,18 +357,15 @@ function renderSummary(data){
         <td class="num">${e.lockerHours}h</td>
         <td class="alerts">${e.alerts.map(esc).join(" · ")||""}</td>
       </tr>`;}).join("");
-
   document.getElementById("content").innerHTML = chips + `
     <div class="tablewrap"><table>
-      <thead><tr>
-        <th>Employee</th><th>Shift</th><th class="num">Production</th><th class="num">Lunch</th>
-        <th class="num">Break</th><th class="num">Bio</th><th class="num">Locker</th><th>Alerts</th>
-      </tr></thead>
-      <tbody>${rows || `<tr><td colspan="8" class="empty">No shifts started on this date.</td></tr>`}</tbody>
+      <thead><tr><th>Employee</th><th>Shift</th><th class="num">Production</th><th class="num">Lunch</th>
+        <th class="num">Break</th><th class="num">Bio</th><th class="num">Locker</th><th>Alerts</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="empty">No shifts on this date.</td></tr>`}</tbody>
     </table></div>`;
 }
 
-/* ---------------- reconciliation view ---------------- */
+/* ─── Reconcile view ──────────────────────────────────────────────────── */
 function renderReconcile(data){
   if (!data.hasBiometric){
     document.getElementById("content").innerHTML = `<div class="empty">
@@ -310,28 +377,26 @@ function renderReconcile(data){
   const flagged = data.rows.filter(r=>r.flag).length;
   const chips = `<div class="chips">
     <div class="chip"><b>${data.rows.filter(r=>r.bioHours!=null).length}</b><span>Matched on ${esc(data.date)}</span></div>
-    <div class="chip ${flagged?'':''}"><b style="color:${flagged?'var(--alert)':'var(--working)'}">${flagged}</b><span>Mismatches ≥ 30 min</span></div>
+    <div class="chip"><b style="color:${flagged?'var(--alert)':'var(--working)'}">${flagged}</b><span>Mismatches ≥ 30 min</span></div>
   </div>`;
   const rows = data.rows.sort((a,b)=>Math.abs(b.delta||0)-Math.abs(a.delta||0)).map(r=>{
     if (r.bioHours==null) return `<tr><td><b>${esc(r.employeeName)}</b> <span class="muted">${esc(r.employeeId)}</span></td>
       <td class="num">${r.appHours}h</td><td class="num muted">no data</td><td class="num muted">—</td></tr>`;
     const d = r.delta, cls = Math.abs(d)<0.5?"muted":(d>0?"delta-pos":"delta-neg");
-    const sign = d>0?"+":"";
     return `<tr class="${r.flag?'flagged':''}">
       <td><b>${esc(r.employeeName)}</b> <span class="muted">${esc(r.employeeId)}</span></td>
-      <td class="num">${r.appHours}h</td>
-      <td class="num">${r.bioHours}h</td>
-      <td class="num ${cls}">${sign}${d}h ${r.flag?'⚠':''}</td></tr>`;
+      <td class="num">${r.appHours}h</td><td class="num">${r.bioHours}h</td>
+      <td class="num ${cls}">${d>0?"+":""}${d}h ${r.flag?'⚠':''}</td></tr>`;
   }).join("");
   document.getElementById("content").innerHTML = chips + `
     <div class="tablewrap"><table>
       <thead><tr><th>Employee</th><th class="num">App production</th><th class="num">Biometric</th><th class="num">Delta</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
-    <p class="muted" style="font-size:12px;margin-top:10px">A large positive delta usually means someone isn't tapping when they leave the floor. The biometric record is the official source of truth.</p>`;
+    <p class="muted" style="font-size:12px;margin-top:10px">A large positive delta usually means someone isn't tapping when they leave the floor.</p>`;
 }
 
-/* ---------------- monthly stats ---------------- */
+/* ─── Monthly stats view ─────────────────────────────────────────────── */
 function renderStats(data){
   const r = data.rows;
   if (!r.length){ document.getElementById("content").innerHTML = `<div class="empty">No completed shifts in ${esc(data.month)}.</div>`; return; }
@@ -344,12 +409,13 @@ function renderStats(data){
   </div>`;
   const rows = r.map(e=>{
     const pct = Math.min(100, e.avgProductionHours/data.targetHours*100);
+    const hitColor = e.targetHitRate>=80?"var(--working)":e.targetHitRate>=50?"var(--break)":"var(--alert)";
     return `<tr>
       <td><b>${esc(e.employeeName)}</b> <span class="muted">${esc(e.employeeId)}</span></td>
       <td class="num">${e.shifts}</td>
       <td class="bar-cell"><b>${e.avgProductionHours}h</b><div class="minibar"><i class="${pct<100?'low':''}" style="width:${pct}%"></i></div></td>
       <td class="num">${e.avgNonProductionHours}h</td>
-      <td class="num"><b style="color:${e.targetHitRate>=80?'var(--working)':(e.targetHitRate>=50?'var(--break)':'var(--alert)')}">${e.targetHitRate}%</b></td>
+      <td class="num"><b style="color:${hitColor}">${e.targetHitRate}%</b></td>
       <td class="num muted">${e.totalProductionHours}h</td>
     </tr>`;
   }).join("");
@@ -360,7 +426,7 @@ function renderStats(data){
     </table></div>`;
 }
 
-/* ---------------- corrections (add / edit / delete) ---------------- */
+/* ─── Corrections ────────────────────────────────────────────────────── */
 async function getEmployeesList(){
   if (employeesCache) return employeesCache;
   const r = await fetch(CONFIG.API_URL + "?action=employees").then(x=>x.json());
@@ -374,7 +440,7 @@ async function renderFix(){
   document.getElementById("content").innerHTML = `
     <div class="form-card">
       <h3>Add a missed event</h3>
-      <p class="muted" style="font-size:12px">Use when someone forgot to tap — e.g. "John forgot to tap lunch end." Logged with an audit note.</p>
+      <p class="muted" style="font-size:12px">Use when someone forgot to tap. Logged with an audit note.</p>
       <label>Employee</label>
       <select id="fxEmp">${emps.map(e=>`<option value="${e.id}">${esc(e.name)} (${e.id})</option>`).join("")}</select>
       <label>Action</label>
@@ -386,12 +452,11 @@ async function renderFix(){
       <button class="go" id="fxGo">Add event</button>
       <div class="form-msg" id="fxMsg"></div>
     </div>
-    <p class="muted" style="font-size:12px">Need to fix a wrong entry instead? Edit or delete the row directly in the <b>Events</b> sheet — the Event ID is in column A.</p>`;
+    <p class="muted" style="font-size:12px">To edit or delete: use the <b>Events</b> sheet directly — Event ID is in column A.</p>`;
   document.getElementById("fxGo").addEventListener("click", submitFix);
 }
 async function submitFix(){
-  const msg = document.getElementById("fxMsg");
-  const btn = document.getElementById("fxGo");
+  const msg = document.getElementById("fxMsg"), btn = document.getElementById("fxGo");
   const localVal = document.getElementById("fxTime").value;
   if (!localVal){ msg.className="form-msg err"; msg.textContent="Pick a date and time."; return; }
   btn.disabled = true; btn.textContent = "Adding…";
@@ -402,7 +467,7 @@ async function submitFix(){
         action:"addEvent", pin,
         employeeId: document.getElementById("fxEmp").value,
         eventType: document.getElementById("fxAction").value,
-        timestamp: new Date(localVal).toISOString(),
+        timestamp: new Date(document.getElementById("fxTime").value).toISOString(),
         note: document.getElementById("fxNote").value
       })
     }).then(x=>x.json());
@@ -412,15 +477,102 @@ async function submitFix(){
   btn.disabled = false; btn.textContent = "Add event";
 }
 
-/* ---------------- CSV export ---------------- */
+/* ─── PINs tab ───────────────────────────────────────────────────────── */
+async function renderPins(){
+  document.getElementById("content").innerHTML = `<div class="empty">Loading agent PINs…</div>`;
+  const emps = await getEmployeesList();
+
+  // Agent PINs are stored in each agent's localStorage on their device, keyed tt_apin_<id>.
+  // From the supervisor side, we can only read pins that have been shared or stored here.
+  // We display a table with "Set by agent" / "Not yet set" indicators.
+  // Supervisors can also manually reset a PIN from here (stored server-side via Config, or we use
+  // a local "supervisor override" concept stored in sessionStorage for this session).
+
+  // Read any locally known PINs (e.g. if supervisor is on the same device, or loaded from API)
+  // We use the agentPins endpoint if available, fallback to localStorage.
+  let serverPins = {};
+  try {
+    const r = await api({ action: "agentPins" });
+    if (r.ok && r.pins) serverPins = r.pins;
+  } catch(_){}
+
+  const rows = emps.map(e => {
+    const pinVal = serverPins[e.id] || localStorage.getItem("tt_apin_" + e.id);
+    const set = !!pinVal;
+    return `<tr>
+      <td><b>${esc(e.name)}</b></td>
+      <td class="muted">${esc(e.id)}</td>
+      <td class="pin-val hidden-pin" id="pin-cell-${esc(e.id)}" data-pin="${set ? esc(pinVal) : ''}" title="${set ? 'Click to reveal' : 'Not set'}">
+        ${set ? "••••" : '<span style="color:var(--muted);font-size:13px;font-weight:500;letter-spacing:0">Not set</span>'}
+      </td>
+      <td>
+        ${set
+          ? `<button class="ghost" style="font-size:12px;padding:6px 10px" onclick="resetPin('${esc(e.id)}', this)">Reset PIN</button>`
+          : `<span style="font-size:12px;color:var(--muted)">Agent sets on first clock-in</span>`
+        }
+      </td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("content").innerHTML = `
+    <p class="pin-note">
+      Each agent sets their own 4-digit PIN the first time they clock in. The PIN lives on their device.
+      If an agent forgets their PIN, click <b>Reset PIN</b> to clear it — they'll be prompted to set a new one at next clock-in.
+      <br>Click any •••• to reveal the PIN for that agent.
+    </p>
+    <button class="reveal-all" id="revealAllBtn">👁 Reveal all PINs</button>
+    <div class="tablewrap"><table class="pin-table">
+      <thead><tr><th>Name</th><th>ID</th><th>PIN</th><th>Action</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+
+  // Reveal individual PIN on click
+  document.querySelectorAll(".pin-val.hidden-pin").forEach(cell => {
+    cell.addEventListener("click", () => {
+      const p = cell.dataset.pin;
+      if (!p) return;
+      cell.textContent = p;
+      cell.classList.remove("hidden-pin");
+      cell.classList.add("revealed");
+    });
+  });
+
+  document.getElementById("revealAllBtn").addEventListener("click", () => {
+    document.querySelectorAll(".pin-val.hidden-pin").forEach(cell => {
+      const p = cell.dataset.pin;
+      if (p){ cell.textContent = p; cell.classList.remove("hidden-pin"); cell.classList.add("revealed"); }
+    });
+  });
+}
+
+function resetPin(empId, btn){
+  if (!confirm("Reset PIN for this agent? They will need to set a new one at their next clock-in.")) return;
+  // Remove from localStorage (if on same device) and notify
+  localStorage.removeItem("tt_apin_" + empId);
+  // Also attempt server-side reset
+  fetch(CONFIG.API_URL, {
+    method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body: JSON.stringify({ action:"resetAgentPin", pin, employeeId: empId })
+  }).catch(()=>{});
+  btn.textContent = "✓ Reset";
+  btn.disabled = true;
+  // Update cell
+  const cell = document.getElementById("pin-cell-" + empId);
+  if (cell){
+    cell.innerHTML = '<span style="color:var(--muted);font-size:13px;font-weight:500;letter-spacing:0">Not set</span>';
+    cell.classList.remove("hidden-pin","revealed");
+    cell.dataset.pin = "";
+  }
+}
+
+/* ─── CSV export ─────────────────────────────────────────────────────── */
 function downloadCSV(filename, rows){
   const csv = rows.map(r=>r.map(c=>{
     const s = String(c==null?"":c);
     return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
   }).join(",")).join("\n");
   const blob = new Blob([csv], {type:"text/csv"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
   URL.revokeObjectURL(a.href);
 }
 function exportCSV(){
@@ -435,10 +587,10 @@ function exportCSV(){
   }
 }
 
-/* ---------------- boot ---------------- */
+/* ─── Boot ────────────────────────────────────────────────────────────── */
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 if (CONFIG.API_URL.startsWith("PASTE")){
-  root.innerHTML = `<div class="empty"><b>Setup needed:</b> open supervisor.html and paste your Apps Script Web App URL into CONFIG.API_URL.</div>`;
+  root.innerHTML = `<div class="empty"><b>Setup needed:</b> paste your Apps Script URL into CONFIG.API_URL.</div>`;
 } else if (pin){ renderShell(); load(); }
 else renderGate();
 </script>
