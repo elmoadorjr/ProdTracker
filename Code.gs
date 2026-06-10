@@ -194,9 +194,12 @@ function logEvent(body) {
 
   // Agent PIN check (server-side). Only TIME_IN is gated — once a shift is open,
   // breaks/returns aren't PIN-gated so offline taps mid-shift always sync cleanly.
+  var pinWasReset = false;
   if (eventType === 'TIME_IN') {
     var v = verifyAgentPin(employeeId, body.agentPin);
     if (!v.ok) return { ok: false, error: 'Incorrect agent PIN', pinError: true, permanent: true };
+    // Pass pinWasReset back so the client knows to wipe its local cache and prompt new PIN setup.
+    if (v.pinWasReset) pinWasReset = true;
   }
 
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_EVENTS);
@@ -233,7 +236,8 @@ function logEvent(body) {
     eventId: eventId,
     timestamp: ts.toISOString(),
     state: STATE_FROM_EVENT[eventType],
-    validActions: VALID_ACTIONS[STATE_FROM_EVENT[eventType]]
+    validActions: VALID_ACTIONS[STATE_FROM_EVENT[eventType]],
+    pinWasReset: pinWasReset
   };
 }
 
@@ -955,7 +959,14 @@ function verifyAgentPin(employeeId, pin) {
   var cfg = getConfig();
   var key = 'AGENT_PIN_' + String(employeeId);
   var stored = cfg[key] || '';
-  if (!stored) return { ok: true, pinNotSet: true }; // No PIN set yet — allow, client handles setup
+  if (!stored) {
+    // No PIN on server — two cases:
+    // pinWasReset=true  → agent supplied a pin but none exists on server; supervisor reset it.
+    //                     Client must wipe its local cache and prompt setup.
+    // pinWasReset=false → genuinely first clock-in ever; client runs setup flow normally.
+    var pinWasReset = !!(pin && String(pin).length > 0);
+    return { ok: true, pinNotSet: true, pinWasReset: pinWasReset };
+  }
   return String(pin) === stored ? { ok: true } : { ok: false, error: 'Incorrect agent PIN' };
 }
 

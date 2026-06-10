@@ -748,11 +748,34 @@ async function performAction(eventType, agentPin){
   else toast("✓ " + fmtClock(new Date()));
   updateSyncBadge();
 
-  if (eventType === "TIME_OUT" && navigator.onLine){
-    try{
-      const w = await fetchJSON(CONFIG.API_URL + "?action=week&id=" + encodeURIComponent(employee.id));
-      if (w.ok && w.days && w.days[0]){ weekData = w; lastRecap = w.days[0]; render(); }
-    }catch(_){}
+  if (eventType === "TIME_OUT"){
+    // Fetch the shift recap after TIME_OUT. Retried up to 3 times (1.5 s apart) because
+    // the Apps Script write and read are separate executions — the read can land before
+    // the write is fully committed, returning an open shift or an empty list.
+    if (navigator.onLine){
+      (async () => {
+        let recap = null;
+        for (let attempt = 0; attempt < 3; attempt++){
+          if (attempt > 0) await new Promise(res => setTimeout(res, 1500));
+          try{
+            const w = await fetchJSON(CONFIG.API_URL + "?action=week&id=" + encodeURIComponent(employee.id));
+            // Must be a closed shift (timeOut present) to be a valid recap
+            const closed = w.ok && w.days && w.days.find(d => !d.open);
+            if (closed){ weekData = w; recap = closed; break; }
+          }catch(_){}
+        }
+        if (recap){
+          lastRecap = recap; render();
+        } else {
+          // All attempts failed or returned only open shifts — show a fallback so
+          // the user is never permanently stuck on "Loading shift summary…"
+          lastRecap = { _fallback: true }; render();
+        }
+      })();
+    } else {
+      // Offline TIME_OUT — can't fetch recap; show fallback immediately
+      lastRecap = { _fallback: true }; render();
+    }
   }
   if (eventType !== "TIME_IN") refreshFloor();
 }
@@ -801,6 +824,23 @@ function render(){
 
   // End-of-shift recap
   if (state === "LOGGED_OUT" && lastRecap){
+    // _fallback: server fetch failed or timed out — show a minimal complete screen
+    // so the agent is never stuck on "Loading shift summary…"
+    if (lastRecap._fallback){
+      app.innerHTML = `
+        <section class="recap">
+          <h2>Shift complete</h2>
+          <div class="big" style="font-size:clamp(28px,8vw,42px);color:var(--muted)">Summary unavailable</div>
+          <div class="verdict">Couldn't load shift data — check your connection.</div>
+        </section>
+        <div class="actions" style="margin-top:18px">
+          <button class="action a-TIME_IN" data-ev="TIME_IN">Start new shift</button>
+        </div>
+        <div class="nav-row">
+          <button class="link-btn" id="statsBtn">My stats →</button>
+        </div>`;
+      bindButtons(); startTimer(); return;
+    }
     const r = lastRecap, met = r.metTarget;
     app.innerHTML = `
       <section class="recap">
@@ -825,8 +865,9 @@ function render(){
   }
 
   if (state === "LOGGED_OUT" && !lastRecap){
-    // Week data fetch still in-flight — show the ring so there's no blank flash,
-    // but no action buttons yet (they appear on the recap once data arrives).
+    // Show spinner while week data loads. Also kick off a fresh fetch here so that a
+    // page-reload into LOGGED_OUT state (lastRecap is never persisted in the snapshot)
+    // always resolves rather than hanging indefinitely.
     app.innerHTML = `
       <div class="ring-hero" style="margin-top:32px">
         <div class="ring-wrap">
@@ -842,7 +883,27 @@ function render(){
         </div>
       </div>
       <div style="text-align:center;color:var(--muted);font-size:13px;margin-top:16px;padding-bottom:8px">Loading shift summary…</div>`;
-    startTimer(); return;
+    startTimer();
+    // If no fetch is already in-flight (e.g. page was reloaded into this state),
+    // kick one off now so the screen doesn't hang forever.
+    if (employee && !render._recapFetching){
+      render._recapFetching = true;
+      (async () => {
+        let recap = null;
+        for (let attempt = 0; attempt < 3; attempt++){
+          if (attempt > 0) await new Promise(res => setTimeout(res, 1500));
+          try{
+            const w = await fetchJSON(CONFIG.API_URL + "?action=week&id=" + encodeURIComponent(employee.id));
+            const closed = w.ok && w.days && w.days.find(d => !d.open);
+            if (closed){ weekData = w; recap = closed; break; }
+          }catch(_){}
+        }
+        render._recapFetching = false;
+        lastRecap = recap || { _fallback: true };
+        render();
+      })();
+    }
+    return;
   }
 
   const actions = VALID_ACTIONS[state] || [];
