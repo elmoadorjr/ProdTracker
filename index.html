@@ -821,12 +821,14 @@ function render(){
       <div class="nav-row">
         <button class="link-btn" id="statsBtn">My stats →</button>
       </div>`;
-    bindButtons(); return;
+    bindButtons(); startTimer(); return;
   }
 
   if (state === "LOGGED_OUT" && !lastRecap){
+    // Week data fetch still in-flight — show the ring so there's no blank flash,
+    // but no action buttons yet (they appear on the recap once data arrives).
     app.innerHTML = `
-      <div class="ring-hero">
+      <div class="ring-hero" style="margin-top:32px">
         <div class="ring-wrap">
           <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
             <circle class="ring-track" cx="110" cy="110" r="80" stroke-dasharray="502" stroke-dashoffset="0" pathLength="502"/>
@@ -839,13 +841,8 @@ function render(){
           </div>
         </div>
       </div>
-      <div class="actions">
-        ${btn("TIME_IN")}
-      </div>
-      <div class="nav-row">
-        <button class="link-btn" id="statsBtn">My stats →</button>
-      </div>`;
-    bindButtons(); startTimer(); return;
+      <div style="text-align:center;color:var(--muted);font-size:13px;margin-top:16px;padding-bottom:8px">Loading shift summary…</div>`;
+    startTimer(); return;
   }
 
   const actions = VALID_ACTIONS[state] || [];
