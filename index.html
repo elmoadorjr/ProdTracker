@@ -365,6 +365,7 @@ let weekData = null;
 let nudged = { midpoint:false };
 let shiftEvents = [];
 let pinSetOnServer = false;
+let resolveSeq = 0; // incremented on each resolveEmployee call and on each tap
 
 /* Full local snapshot of the live shift, so an offline reload mid-shift
    restores the ring, production count and timeline — not just the state. */
@@ -501,17 +502,28 @@ function updateRing(){
 }
 
 /* ─── Timeline ── */
+/**
+ * Builds timeline segments scaled to the FULL scheduled shift window
+ * (shiftStart → shiftStart + SHIFT_LENGTH_HOURS), not just elapsed time.
+ * This means: at second zero the bar is empty, at shift end it fills up —
+ * matching the ring arc's behavior and preventing the "100% full bar
+ * on fresh clock-in" visual glitch.
+ *
+ * now: Date object or timestamp number — the right edge that's actually drawn.
+ */
 function buildTimelineSegs(evts, currentState, shiftStartTime, now){
   if (!shiftStartTime) return [];
   const start = new Date(shiftStartTime).getTime();
-  const end = now;
-  const total = Math.max(1, end - start);
+  const nowMs = (now instanceof Date) ? now.getTime() : Number(now);
+  // Scale to the full expected shift so the bar doesn't immediately fill to 100%
+  const shiftMs = (targets.shiftLengthHours || 9) * 3600000;
+  const total = Math.max(shiftMs, nowMs - start); // expand if shift runs over
   const segments = [];
   let cursor = start;
   let curState = "WORKING";
   const push = (type, from, to) => {
-    const w = Math.max(0, Math.min(to,end) - Math.max(from,start));
-    if (w > 0) segments.push({ type, pct: w/total*100 });
+    const w = Math.max(0, Math.min(to, nowMs) - Math.max(from, start));
+    if (w > 0) segments.push({ type, pct: w / total * 100 });
   };
   for (const ev of evts){
     const ts = new Date(ev.ts).getTime();
@@ -520,7 +532,7 @@ function buildTimelineSegs(evts, currentState, shiftStartTime, now){
     cursor = ts;
     curState = STATE_FROM_EVENT[ev.action] || curState;
   }
-  push(curState, cursor, end);
+  push(curState, cursor, nowMs);
   return segments;
 }
 
@@ -703,6 +715,7 @@ async function performAction(eventType, agentPin){
   if (eventType !== "TIME_IN") shiftEvents.push({ ts: tapTime.toISOString(), action: eventType });
   state = STATE_FROM_EVENT[eventType];
   since = tapTime;
+  resolveSeq++; // invalidate any concurrent resolveEmployee — our tap is now the truth
   saveSnapshot();
   render(); vibrate();
 
@@ -1046,6 +1059,7 @@ async function identify(){
 }
 
 async function resolveEmployee(id){
+  const seq = ++resolveSeq; // increment before any await; stale responses are ignored
   const cachedList = JSON.parse(localStorage.getItem("tt_employees")||"[]");
   const cachedEmp = cachedList.find(e=>e.id===id);
   if (cachedEmp){
@@ -1055,6 +1069,7 @@ async function resolveEmployee(id){
   }
   try{
     const r = await fetchJSON(CONFIG.API_URL + "?action=status&id=" + encodeURIComponent(id));
+    if (seq !== resolveSeq) return; // a newer resolve (or a tap) ran while we were waiting — discard
     if (!r.ok){
       app.innerHTML = `<div class="error-screen"><b>${esc(r.error)}</b>Ask your supervisor to check your employee ID.</div>`;
       return;

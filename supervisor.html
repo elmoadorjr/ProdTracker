@@ -349,14 +349,17 @@ function buildMiniTimeline(shiftStartIso, shiftEndIso, eventsArr){
   if (!shiftStartIso) return "";
   const start = new Date(shiftStartIso).getTime();
   const end = shiftEndIso ? new Date(shiftEndIso).getTime() : Date.now();
-  const total = Math.max(1, end - start);
+  // Scale to full expected shift length so a brand-new shift doesn't show as 100% full
+  const shiftMs = (lastLive && lastLive.config && lastLive.config.SHIFT_LENGTH_HOURS
+    ? Number(lastLive.config.SHIFT_LENGTH_HOURS) : 9) * 3600000;
+  const total = Math.max(shiftMs, end - start);
   const fmtT = iso => new Date(iso).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
   const segs = [];
   let cursor = start, curState = "WORKING";
   for (const ev of (eventsArr||[])){
     const ts = new Date(ev.ts).getTime();
     if (ts <= start) continue;
-    const w = Math.max(0, Math.min(ts,end) - cursor);
+    const w = Math.max(0, Math.min(ts, end) - cursor);
     if (w > 0) segs.push({ type: curState, pct: w/total*100 });
     cursor = ts;
     curState = STATE_FROM_EVENT[ev.action] || curState;
