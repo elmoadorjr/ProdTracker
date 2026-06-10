@@ -3,16 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#101418">
+<meta name="theme-color" content="#0A0D10">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>Time Tracker</title>
 <style>
   :root{
-    --ink:#101418; --paper:#F6F7F8; --muted:#8A939E; --line:#252C33;
-    --working:#1FA463; --break:#E0A53C; --lunch:#E2702E;
-    --bio:#3D7DD8; --locker:#8B5CD6; --out:#C84545; --idle:#5A6672;
-    --radius:18px;
+    --ink:#0A0D10; --surface:#12181F; --surface2:#1A2330; --line:#1F2933;
+    --paper:#EEF0F2; --muted:#5C6878; --muted2:#3A4554;
+    --working:#00C97A; --break:#F5A623; --lunch:#F5652A;
+    --bio:#3D88F5; --locker:#9B6EF5; --out:#E84545; --idle:#3A4554;
+    --radius:20px; --radius-sm:14px;
     --font:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -20,222 +21,299 @@
   body{
     font-family:var(--font); background:var(--ink); color:var(--paper);
     display:flex; flex-direction:column; min-height:100dvh;
-    transition:background .45s ease;
+    transition:background .5s ease;
   }
-  @media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important} }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
-  body[data-state="WORKING"]{background:#0D2C1D}
-  body[data-state="BREAK"]{background:#2E2410}
-  body[data-state="LUNCH"]{background:#301A0C}
-  body[data-state="BIO"]{background:#0F1F38}
-  body[data-state="LOCKER"]{background:#1F1233}
-  body[data-state="LOGGED_OUT"]{background:#2B1212}
+  /* State-tinted backgrounds — subtle, not garish */
+  body[data-state="WORKING"]{background:#071813}
+  body[data-state="BREAK"]{background:#1A1205}
+  body[data-state="LUNCH"]{background:#1A0C05}
+  body[data-state="BIO"]{background:#071528}
+  body[data-state="LOCKER"]{background:#120B28}
+  body[data-state="LOGGED_OUT"]{background:#160A0A}
 
+  /* ── Header ── */
   header{
     display:flex; align-items:center; justify-content:space-between;
-    padding:14px 18px; font-size:13px; color:var(--muted);
-    border-bottom:1px solid var(--line);
+    padding:max(14px,env(safe-area-inset-top)) 20px 14px;
+    position:relative;
   }
-  header .who{font-weight:700; color:var(--paper); letter-spacing:.02em}
-  header .sup-link{
-    font-size:11px; font-weight:700; color:var(--muted); text-decoration:none;
-    padding:4px 10px; border-radius:999px; background:#1C2329;
-    border:1px solid var(--line); transition:color .15s,border-color .15s;
-    white-space:nowrap;
+  .who{font-weight:700; font-size:14px; letter-spacing:.01em; color:var(--paper)}
+  .who small{display:block; font-size:11px; font-weight:500; color:var(--muted); letter-spacing:.04em; margin-top:1px}
+  .header-right{display:flex; align-items:center; gap:10px}
+  .sup-link{
+    font-size:12px; font-weight:700; color:var(--muted); text-decoration:none;
+    padding:6px 12px; border-radius:999px; border:1px solid var(--line);
+    transition:color .15s,border-color .15s; letter-spacing:.02em;
   }
-  header .sup-link:active{color:var(--paper); border-color:var(--muted)}
+  .sup-link:active{color:var(--paper); border-color:var(--muted2)}
   #syncBadge{
-    font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px;
-    background:#1C2329; color:var(--muted);
+    font-size:11px; font-weight:700; padding:5px 10px; border-radius:999px;
+    border:1px solid var(--line); color:var(--muted); letter-spacing:.03em;
   }
-  #syncBadge.offline{background:#4A3413; color:#F4C868}
-  #syncBadge.syncing{background:#13304A; color:#7FB8F0}
+  #syncBadge::before{content:"●"; margin-right:5px; font-size:7px; vertical-align:1px}
+  #syncBadge.offline{border-color:#4A3413; color:#F5A623}
+  #syncBadge.syncing{border-color:#13304A; color:#7FB8F0}
+  #syncBadge.syncing::before{content:"↻"; font-size:12px; vertical-align:-1px}
 
-  main{flex:1; display:flex; flex-direction:column; padding:0 18px 24px; max-width:520px; width:100%; margin:0 auto}
-
-  /* ── State card ── */
-  .state-card{
-    border-radius:var(--radius); padding:28px 22px 24px; text-align:center;
-    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
-    margin-bottom:16px;
+  /* ── Main content area ── */
+  main{
+    flex:1; display:flex; flex-direction:column;
+    padding:0 20px max(24px,env(safe-area-inset-bottom));
+    max-width:480px; width:100%; margin:0 auto;
   }
-  .state-dot{font-size:15px; letter-spacing:.22em; font-weight:800; text-transform:uppercase}
-  .state-dot[data-s="WORKING"]{color:var(--working)} .state-dot[data-s="BREAK"]{color:var(--break)}
-  .state-dot[data-s="LUNCH"]{color:var(--lunch)}   .state-dot[data-s="BIO"]{color:var(--bio)}
-  .state-dot[data-s="LOCKER"]{color:var(--locker)} .state-dot[data-s="LOGGED_OUT"]{color:var(--out)}
-  .state-dot[data-s="NOT_STARTED"]{color:var(--idle)}
-  .elapsed{
-    font-size:clamp(52px,16vw,78px); font-weight:800; line-height:1.05; margin-top:8px;
-    font-variant-numeric:tabular-nums; letter-spacing:-.02em;
-  }
-  .since{margin-top:4px; font-size:13px; color:var(--muted)}
 
-  /* ── Timeline bar (Strava-style) ── */
+  /* ── Arc ring hero ── */
+  .ring-hero{
+    display:flex; flex-direction:column; align-items:center;
+    padding:8px 0 4px; position:relative;
+  }
+  .ring-wrap{position:relative; width:220px; height:220px; margin:0 auto}
+  .ring-wrap svg{width:100%; height:100%; transform:rotate(-225deg)}
+  .ring-track{fill:none; stroke:var(--line); stroke-width:10; stroke-linecap:round}
+  .ring-fill{
+    fill:none; stroke-width:10; stroke-linecap:round;
+    stroke-dasharray:502; stroke-dashoffset:502;
+    transition:stroke-dashoffset 1s linear, stroke .4s ease;
+  }
+  .ring-fill.working{stroke:var(--working)}
+  .ring-fill.break{stroke:var(--break)}
+  .ring-fill.lunch{stroke:var(--lunch)}
+  .ring-fill.bio{stroke:var(--bio)}
+  .ring-fill.locker{stroke:var(--locker)}
+  .ring-fill.out{stroke:var(--out)}
+  .ring-fill.met{stroke:#00FF99}
+
+  .ring-inner{
+    position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+  }
+  .ring-state{
+    font-size:10px; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:4px;
+  }
+  .ring-state[data-s="WORKING"]{color:var(--working)}
+  .ring-state[data-s="BREAK"]{color:var(--break)}
+  .ring-state[data-s="LUNCH"]{color:var(--lunch)}
+  .ring-state[data-s="BIO"]{color:var(--bio)}
+  .ring-state[data-s="LOCKER"]{color:var(--locker)}
+  .ring-state[data-s="LOGGED_OUT"]{color:var(--out)}
+  .ring-state[data-s="NOT_STARTED"]{color:var(--muted)}
+  #elapsed{
+    font-size:42px; font-weight:800; line-height:1; letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums; color:var(--paper);
+  }
+  #sinceLine{font-size:12px; color:var(--muted); margin-top:5px; font-weight:500}
+
+  .ring-prod-label{
+    font-size:13px; font-weight:700; margin-top:12px;
+    color:var(--muted); letter-spacing:.01em;
+  }
+  .ring-prod-label b{color:var(--paper)}
+  .ring-prod-label.met{color:var(--working)}
+  .ring-prod-label.risk{color:var(--out)}
+
+  /* ── Timeline strip ── */
   .timeline-wrap{
-    margin-bottom:16px;
-    background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07);
-    border-radius:14px; padding:14px 16px;
+    margin:16px 0 0;
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius-sm); padding:14px 16px;
   }
-  .timeline-label{display:flex;justify-content:space-between;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
-  .timeline-bar{height:14px; border-radius:99px; background:rgba(255,255,255,.08); overflow:hidden; display:flex}
+  .timeline-label{
+    display:flex; justify-content:space-between;
+    font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:9px;
+  }
+  .timeline-bar{height:12px; border-radius:99px; background:var(--line); overflow:hidden; display:flex}
   .timeline-seg{height:100%; transition:width .4s ease; min-width:0}
   .timeline-seg.WORKING{background:var(--working)}
   .timeline-seg.BREAK{background:var(--break)}
   .timeline-seg.LUNCH{background:var(--lunch)}
   .timeline-seg.BIO{background:var(--bio)}
   .timeline-seg.LOCKER{background:var(--locker)}
-  .timeline-seg.GAP{background:rgba(255,255,255,.08)}
-  .timeline-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-  .tl-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)}
-  .tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+  .timeline-seg.GAP{background:var(--line)}
+  .timeline-legend{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
+  .tl-item{display:flex; align-items:center; gap:5px; font-size:11px; color:var(--muted)}
+  .tl-dot{width:7px; height:7px; border-radius:50%; flex-shrink:0}
   .tl-dot.WORKING{background:var(--working)} .tl-dot.BREAK{background:var(--break)}
   .tl-dot.LUNCH{background:var(--lunch)} .tl-dot.BIO{background:var(--bio)}
   .tl-dot.LOCKER{background:var(--locker)}
 
-  /* ── Production panel ── */
-  .prod-panel{
-    border-radius:var(--radius); padding:16px 20px; margin-bottom:16px;
-    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+  /* ── Production hint line ── */
+  .prod-hint{
+    font-size:13px; font-weight:600; color:var(--muted);
+    text-align:center; padding:10px 0 4px; line-height:1.4;
   }
-  .prod-row{display:flex; justify-content:space-between; align-items:baseline}
-  .prod-row b{font-size:22px; font-weight:800; font-variant-numeric:tabular-nums}
-  .prod-row span{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:700}
-  .prod-bar{height:8px; border-radius:99px; background:rgba(255,255,255,.1); margin:10px 0 8px; overflow:hidden}
-  .prod-bar i{display:block; height:100%; background:var(--working); border-radius:99px; transition:width 1s linear}
-  .prod-bar i.met{background:#3DD68C}
-  .prod-bar i.risk{background:var(--out)}
-  .prod-hint{font-size:13px; color:var(--paper); font-weight:600}
-  .prod-hint.risk{color:#F58A8A}
-  .prod-hint.met{color:#5FE3A1}
-  .sched-line{margin-top:8px; font-size:12px; color:var(--muted)}
+  .prod-hint.met{color:var(--working)}
+  .prod-hint.risk{color:var(--out)}
+  .sched-line{font-size:11px; color:var(--muted2); text-align:center; padding-bottom:4px}
 
-  /* ── Floor count ── */
+  /* ── Floor line ── */
   .floor-line{
     display:flex; align-items:center; justify-content:center; gap:8px;
-    font-size:13px; color:var(--muted); margin-bottom:12px; font-weight:600;
+    font-size:12px; color:var(--muted); padding:6px 0; font-weight:600;
   }
-  .floor-line b{color:var(--paper)} .floor-line .dot{width:8px;height:8px;border-radius:50%;background:var(--working);display:inline-block}
+  .floor-line b{color:var(--paper)}
+  .floor-line .dot{width:7px; height:7px; border-radius:50%; background:var(--working); display:inline-block; margin-right:2px}
 
-  /* ── End-of-shift recap ── */
-  .recap{border-radius:var(--radius); padding:26px 22px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08); text-align:center}
-  .recap h2{font-size:18px; font-weight:800; margin-bottom:4px}
-  .recap .big{font-size:clamp(44px,14vw,64px); font-weight:800; font-variant-numeric:tabular-nums; letter-spacing:-.02em; margin:6px 0}
-  .recap .big.met{color:#5FE3A1} .recap .big.miss{color:#F58A8A}
-  .recap .verdict{font-size:14px; font-weight:700; margin-bottom:18px}
-  .recap .grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:4px}
-  .recap .grid div{background:rgba(255,255,255,.04); border-radius:12px; padding:10px 4px}
-  .recap .grid b{display:block; font-size:17px; font-variant-numeric:tabular-nums}
-  .recap .grid span{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
-
-  /* ── Stats view (Daily/Weekly/Monthly) ── */
-  .stats-wrap{display:flex;flex-direction:column;gap:0}
-  .stats-tabs{display:flex;background:rgba(255,255,255,.05);border-radius:12px;padding:4px;margin-bottom:16px;border:1px solid var(--line)}
-  .stats-tabs button{
-    flex:1;font-family:var(--font);font-size:13px;font-weight:700;color:var(--muted);
-    background:none;border:none;border-radius:9px;padding:9px 4px;cursor:pointer;
-    transition:background .15s,color .15s;
-  }
-  .stats-tabs button.on{background:rgba(255,255,255,.12);color:var(--paper)}
-  .shift-card{
-    background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;
-    padding:14px 16px;margin-bottom:10px;
-  }
-  .shift-card .sc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-  .shift-card .sc-date{font-weight:700;font-size:14px}
-  .shift-card .sc-date small{display:block;font-size:11px;color:var(--muted);font-weight:500;margin-top:1px}
-  .shift-card .sc-prod{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
-  .shift-card .sc-prod.met{color:#5FE3A1} .shift-card .sc-prod.miss{color:#F58A8A}
-  .shift-card .sc-bar{height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden;margin:8px 0 10px}
-  .shift-card .sc-bar i{display:block;height:100%;border-radius:99px;background:var(--working)}
-  .shift-card .sc-bar i.met{background:#3DD68C} .shift-card .sc-bar i.miss{background:var(--out)}
-  .shift-card .sc-detail{display:flex;flex-wrap:wrap;gap:6px 14px}
-  .shift-card .sc-detail span{font-size:11px;color:var(--muted)}
-  .shift-card .sc-detail b{color:var(--paper)}
-  .shift-tl{margin:10px 0 4px}
-
-  /* month card */
-  .month-card{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
-  .month-card h3{font-size:15px;font-weight:800;margin-bottom:12px}
-  .month-stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .month-stat-grid .ms{background:rgba(255,255,255,.05);border-radius:10px;padding:12px}
-  .month-stat-grid .ms b{display:block;font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
-  .month-stat-grid .ms span{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
-  .hit-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;margin:12px 0 6px}
-  .hit-bar i{display:block;height:100%;border-radius:99px}
-
-  /* ── Actions ── */
-  .actions{display:flex; flex-direction:column; gap:12px; margin-top:auto; padding-top:8px}
+  /* ── Action buttons ── */
+  .actions{display:flex; flex-direction:column; gap:10px; margin-top:auto; padding-top:12px}
   button.action{
-    font-family:var(--font); font-size:19px; font-weight:800; letter-spacing:.03em;
-    border:none; border-radius:var(--radius); padding:20px; width:100%;
-    color:#fff; cursor:pointer; transition:transform .08s ease, filter .15s ease;
+    font-family:var(--font); font-size:16px; font-weight:800; letter-spacing:.05em;
+    border:none; border-radius:var(--radius); padding:19px; width:100%;
+    color:#fff; cursor:pointer;
+    transition:transform .08s ease, filter .15s ease, opacity .2s;
+    text-transform:uppercase;
   }
   button.action:active{transform:scale(.97); filter:brightness(1.15)}
-  button.action:focus-visible{outline:3px solid #fff; outline-offset:3px}
-  button.action:disabled{opacity:.45; pointer-events:none}
-  .a-TIME_IN{background:var(--working)}
+  button.action:focus-visible{outline:3px solid rgba(255,255,255,.5); outline-offset:3px}
+  button.action:disabled{opacity:.35; pointer-events:none}
+  .a-TIME_IN{background:var(--working); color:#001A0D}
   .a-TIME_OUT{background:var(--out)}
-  .a-BREAK_START{background:var(--break); color:#241A05}
+  .a-BREAK_START{background:var(--break); color:#1A0E00}
   .a-LUNCH_START{background:var(--lunch)}
   .a-BIO_START{background:var(--bio)}
   .a-LOCKER_START{background:var(--locker)}
-  .a-RETURN{background:var(--working)}
-  .secondary-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .a-RETURN{background:var(--working); color:#001A0D}
 
-  /* ── Nav row (bottom link buttons) ── */
-  .nav-row{display:flex;justify-content:center;gap:14px;margin-top:16px}
-  .link-btn{background:none; border:none; color:var(--muted); font-family:var(--font); font-size:13px; font-weight:700; cursor:pointer; text-decoration:underline; padding:4px}
+  /* 2-up grid for break buttons */
+  .secondary-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .secondary-grid button.action{font-size:14px; padding:17px 12px}
 
-  /* ── PIN gate (for TIME IN verification) ── */
-  .pin-gate{
-    position:fixed;inset:0;background:rgba(10,14,18,.92);backdrop-filter:blur(12px);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
-    gap:14px;padding:24px;z-index:100;
+  /* ── Nav row ── */
+  .nav-row{
+    display:flex; justify-content:center; gap:16px; padding-top:14px;
   }
-  .pin-gate h2{font-size:20px;font-weight:800;text-align:center}
-  .pin-gate p{font-size:13px;color:var(--muted);text-align:center}
-  .pin-row{display:flex;gap:12px}
+  .link-btn{
+    background:none; border:none; color:var(--muted); font-family:var(--font);
+    font-size:13px; font-weight:700; cursor:pointer; padding:4px 8px;
+    text-decoration:none; border-bottom:1px solid var(--line);
+    transition:color .15s, border-color .15s;
+  }
+  .link-btn:active{color:var(--paper)}
+
+  /* ── PIN gate ── */
+  .pin-gate{
+    position:fixed; inset:0; background:rgba(6,9,12,.93);
+    backdrop-filter:blur(16px);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:16px; padding:28px; z-index:100;
+  }
+  .pin-gate h2{font-size:22px; font-weight:800; text-align:center; letter-spacing:-.01em}
+  .pin-gate p{font-size:13px; color:var(--muted); text-align:center; max-width:260px; line-height:1.5}
+  .pin-row{display:flex; gap:12px}
   .pin-row input{
-    width:52px;height:64px;font-size:28px;font-weight:700;text-align:center;
-    background:#1C2329;border:2px solid var(--line);border-radius:14px;
-    color:var(--paper);outline:none;caret-color:var(--working);
+    width:56px; height:68px; font-size:28px; font-weight:800; text-align:center;
+    background:var(--surface); border:1.5px solid var(--line); border-radius:16px;
+    color:var(--paper); outline:none; caret-color:var(--working);
     transition:border-color .2s;
   }
   .pin-row input:focus{border-color:var(--working)}
-  .pin-err{color:#C84545;font-size:13px;min-height:18px;text-align:center;font-weight:700}
-  .pin-cancel{font-family:var(--font);font-size:14px;font-weight:700;color:var(--muted);background:none;border:none;cursor:pointer;margin-top:4px;text-decoration:underline}
+  .pin-err{color:var(--out); font-size:13px; min-height:18px; text-align:center; font-weight:700}
+  .pin-cancel{
+    font-family:var(--font); font-size:14px; font-weight:700; color:var(--muted);
+    background:none; border:none; cursor:pointer; padding:8px; text-decoration:underline;
+  }
 
   /* ── Toast ── */
   #toast{
-    position:fixed; left:50%; bottom:max(24px, env(safe-area-inset-bottom));
+    position:fixed; left:50%; bottom:max(28px, env(safe-area-inset-bottom));
     transform:translate(-50%, 80px); opacity:0;
-    background:#fff; color:var(--ink); font-weight:800; font-size:15px;
-    padding:13px 22px; border-radius:999px; pointer-events:none;
+    background:var(--paper); color:var(--ink); font-weight:800; font-size:14px;
+    padding:12px 22px; border-radius:999px; pointer-events:none;
     transition:transform .25s ease, opacity .25s ease; white-space:nowrap;
-    box-shadow:0 8px 30px rgba(0,0,0,.4);
+    box-shadow:0 8px 32px rgba(0,0,0,.5);
   }
   #toast.show{transform:translate(-50%,0); opacity:1}
-  #toast.warn{background:#F4C868; color:#241A05}
+  #toast.warn{background:#F5A623; color:#1A0E00}
 
-  /* ── Identify/dropdown ── */
-  .identify{display:flex; flex-direction:column; gap:14px; margin:auto 0; text-align:center}
-  .identify h1{font-size:24px; font-weight:800}
-  .identify p{color:var(--muted); font-size:14px}
-  select,.identify button{
-    font-family:var(--font); font-size:17px; padding:16px; border-radius:14px;
-    border:1px solid var(--line); background:#1A2026; color:var(--paper); width:100%;
+  /* ── End-of-shift recap ── */
+  .recap{
+    border-radius:var(--radius); padding:28px 22px; text-align:center;
+    background:var(--surface); border:1px solid var(--line);
   }
-  .identify button{background:var(--working); border:none; font-weight:800; cursor:pointer}
-  .loading,.error-screen{margin:auto; text-align:center; color:var(--muted); padding:0 24px}
-  .error-screen b{color:var(--paper)}
+  .recap h2{font-size:16px; font-weight:800; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; margin-bottom:6px}
+  .recap .big{
+    font-size:clamp(52px,16vw,72px); font-weight:800;
+    font-variant-numeric:tabular-nums; letter-spacing:-.02em; margin:8px 0 4px;
+    line-height:1;
+  }
+  .recap .big.met{color:var(--working)} .recap .big.miss{color:var(--out)}
+  .recap .verdict{font-size:14px; font-weight:700; margin-bottom:22px; color:var(--muted)}
+  .recap-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px}
+  .recap-grid div{
+    background:var(--surface2); border-radius:12px; padding:12px 6px;
+  }
+  .recap-grid b{display:block; font-size:18px; font-variant-numeric:tabular-nums; font-weight:800; color:var(--paper)}
+  .recap-grid span{font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
+  .recap .sched-line{margin-top:14px; font-size:12px; color:var(--muted)}
+
+  /* ── Stats view ── */
+  .stats-header{display:flex; align-items:center; justify-content:space-between; padding:4px 0 16px}
+  .stats-header h2{font-size:18px; font-weight:800}
+  .stats-tabs{
+    display:flex; background:var(--surface); border-radius:12px; padding:4px;
+    margin-bottom:16px; border:1px solid var(--line); gap:2px;
+  }
+  .stats-tabs button{
+    flex:1; font-family:var(--font); font-size:13px; font-weight:700; color:var(--muted);
+    background:none; border:none; border-radius:9px; padding:9px 4px; cursor:pointer;
+    transition:background .15s, color .15s;
+  }
+  .stats-tabs button.on{background:var(--surface2); color:var(--paper)}
+  .shift-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:14px 16px; margin-bottom:10px;
+  }
+  .shift-card .sc-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px}
+  .shift-card .sc-date{font-weight:700; font-size:14px}
+  .shift-card .sc-date small{display:block; font-size:11px; color:var(--muted); font-weight:500; margin-top:2px}
+  .shift-card .sc-prod{font-size:22px; font-weight:800; font-variant-numeric:tabular-nums}
+  .shift-card .sc-prod.met{color:var(--working)} .shift-card .sc-prod.miss{color:var(--out)}
+  .shift-card .sc-bar{height:6px; border-radius:99px; background:var(--line); overflow:hidden; margin:4px 0 10px}
+  .shift-card .sc-bar i{display:block; height:100%; border-radius:99px; background:var(--working)}
+  .shift-card .sc-bar i.met{background:#00FF99} .shift-card .sc-bar i.miss{background:var(--out)}
+  .shift-card .sc-detail{display:flex; flex-wrap:wrap; gap:6px 14px}
+  .shift-card .sc-detail span{font-size:11px; color:var(--muted)}
+  .shift-card .sc-detail b{color:var(--paper)}
+  .shift-tl{margin:10px 0 4px}
+  .month-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm);
+    padding:16px; margin-bottom:12px;
+  }
+  .month-card h3{font-size:14px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin-bottom:14px}
+  .month-stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .month-stat-grid .ms{background:var(--surface2); border-radius:10px; padding:12px}
+  .month-stat-grid .ms b{display:block; font-size:22px; font-weight:800; font-variant-numeric:tabular-nums}
+  .month-stat-grid .ms span{font-size:10px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase}
+  .hit-bar{height:6px; border-radius:99px; background:var(--line); overflow:hidden; margin:14px 0 6px}
+  .hit-bar i{display:block; height:100%; border-radius:99px}
+  .stats-wrap{display:flex; flex-direction:column; gap:0}
+
+  /* ── Identify / dropdown ── */
+  .identify{display:flex; flex-direction:column; gap:16px; margin:auto 0; text-align:center}
+  .identify h1{font-size:26px; font-weight:800; letter-spacing:-.01em}
+  .identify p{color:var(--muted); font-size:14px; line-height:1.5}
+  select,.identify button{
+    font-family:var(--font); font-size:16px; padding:16px; border-radius:var(--radius-sm);
+    border:1px solid var(--line); background:var(--surface); color:var(--paper); width:100%;
+  }
+  .identify button{background:var(--working); border:none; font-weight:800; cursor:pointer; color:#001A0D}
+  .loading,.error-screen{
+    margin:auto; text-align:center; color:var(--muted); padding:0 24px; line-height:1.6;
+  }
+  .error-screen b{color:var(--paper); display:block; margin-bottom:8px}
 </style>
 </head>
 <body data-state="">
   <header>
-    <span class="who" id="whoami">&nbsp;</span>
-    <div style="display:flex;align-items:center;gap:8px">
-      <a href="supervisor.html" class="sup-link">Supervisor ›</a>
-      <span id="syncBadge">● online</span>
+    <div class="who">
+      <span id="whoami">&nbsp;</span>
+    </div>
+    <div class="header-right">
+      <a href="supervisor.html" class="sup-link">Supervisor</a>
+      <span id="syncBadge">online</span>
     </div>
   </header>
   <main id="app"><div class="loading">Loading…</div></main>
@@ -247,7 +325,6 @@ const CONFIG = {
   API_URL: "https://script.google.com/macros/s/AKfycbwcyEGKlsGLzG_HC8quz8vsTfMwqwJxhJ2ARQadAFl7KvZz8yAYzn-j0t1qhd66mV5g7A/exec"
 };
 
-/* ─── State machine ─────────────────────────────────────────────────────── */
 const STATE_FROM_EVENT = {
   TIME_IN:"WORKING", TIME_OUT:"LOGGED_OUT",
   BREAK_START:"BREAK", BREAK_END:"WORKING",
@@ -261,20 +338,23 @@ const VALID_ACTIONS = {
   BREAK:["BREAK_END"], LUNCH:["LUNCH_END"], BIO:["BIO_END"], LOCKER:["LOCKER_END"]
 };
 const LABELS = {
-  TIME_IN:"TIME IN", TIME_OUT:"TIME OUT",
-  BREAK_START:"BREAK", LUNCH_START:"LUNCH", BIO_START:"BIO BREAK", LOCKER_START:"LOCKER BREAK",
-  BREAK_END:"RETURN TO WORK", LUNCH_END:"RETURN TO WORK", BIO_END:"RETURN TO WORK", LOCKER_END:"RETURN TO WORK"
+  TIME_IN:"Clock In", TIME_OUT:"End Shift",
+  BREAK_START:"Take a Break", LUNCH_START:"Lunch", BIO_START:"Bio Break", LOCKER_START:"Locker Break",
+  BREAK_END:"Back to Work", LUNCH_END:"Back to Work", BIO_END:"Back to Work", LOCKER_END:"Back to Work"
 };
 const STATE_TEXT = {
-  NOT_STARTED:"⚪ NOT STARTED", WORKING:"🟢 WORKING", BREAK:"🟡 BREAK", LUNCH:"🟠 LUNCH",
-  BIO:"🔵 BIO BREAK", LOCKER:"🟣 LOCKER BREAK", LOGGED_OUT:"🔴 SHIFT COMPLETED"
+  NOT_STARTED:"NOT STARTED", WORKING:"WORKING", BREAK:"ON BREAK", LUNCH:"LUNCH",
+  BIO:"BIO BREAK", LOCKER:"LOCKER BREAK", LOGGED_OUT:"SHIFT COMPLETE"
 };
 const STATE_COLOR = {
   WORKING:"var(--working)", BREAK:"var(--break)", LUNCH:"var(--lunch)",
   BIO:"var(--bio)", LOCKER:"var(--locker)", LOGGED_OUT:"var(--out)"
 };
+const RING_CLASS = {
+  WORKING:"working", BREAK:"break", LUNCH:"lunch",
+  BIO:"bio", LOCKER:"locker", LOGGED_OUT:"out"
+};
 
-/* ─── App state ─────────────────────────────────────────────────────────── */
 const app = document.getElementById("app");
 let employee = null;
 let state = "NOT_STARTED";
@@ -285,21 +365,20 @@ let targets = { minProductionHours: 7, shiftLengthHours: 9 };
 let schedule = [];
 let floor = null;
 let lastRecap = null;
-let view = "main";          // "main" | "stats" | "week"
-let statsTab = "weekly";    // "daily" | "weekly" | "monthly"
+let view = "main";
+let statsTab = "weekly";
 let weekData = null;
 let nudged = { midpoint:false };
-let shiftEvents = [];       // [{ts, action}] for the current shift (timeline)
+let shiftEvents = [];
 const liveProdMs = () => prodBaseMs + (prodAnchor ? Date.now() - prodAnchor.getTime() : 0);
 const fmtHM = ms => {
   const m = Math.max(0, Math.round(ms/60000));
   return Math.floor(m/60) + ":" + pad(m%60);
 };
 
-/* ─── Helpers ───────────────────────────────────────────────────────────── */
 const $ = s => document.querySelector(s);
 const uuid = () => (crypto.randomUUID ? crypto.randomUUID()
-  : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==="x"?r:(r&3|8)).toString(16);}));
+  : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==="x"?r:(r&3|8)).toString(16);}));
 const fmtClock = d => d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
 const pad = n => String(n).padStart(2,"0");
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -309,26 +388,26 @@ function toast(msg, warn){
   t.textContent = msg; t.className = warn ? "warn show" : "show";
   clearTimeout(t._h); t._h = setTimeout(()=>t.classList.remove("show"), 2200);
 }
-function vibrate(){ if (navigator.vibrate) navigator.vibrate(40); }
+function vibrate(){ if(navigator.vibrate) navigator.vibrate(40); }
 
-/* ─── Offline queue ─────────────────────────────────────────────────────── */
+/* ─── Offline queue ── */
 const QKEY = "tt_queue_v1";
-const getQueue  = () => JSON.parse(localStorage.getItem(QKEY) || "[]");
-const setQueue  = q => localStorage.setItem(QKEY, JSON.stringify(q));
+const getQueue = () => JSON.parse(localStorage.getItem(QKEY)||"[]");
+const setQueue = q => localStorage.setItem(QKEY, JSON.stringify(q));
 let flushing = false;
 
 function updateSyncBadge(){
   const b = $("#syncBadge");
+  if (!b) return;
   const pending = getQueue().length;
-  if (!navigator.onLine){ b.textContent = "● offline · " + pending + " queued"; b.className = "offline"; }
-  else if (pending > 0){ b.textContent = "↻ syncing " + pending + "…"; b.className = "syncing"; }
-  else { b.textContent = "● online"; b.className = ""; }
+  if (!navigator.onLine){ b.textContent = "offline · " + pending + " queued"; b.className = "offline"; }
+  else if (pending > 0){ b.textContent = "syncing " + pending + "…"; b.className = "syncing"; }
+  else { b.textContent = "online"; b.className = ""; }
 }
 
 async function postEvent(ev){
   const res = await fetch(CONFIG.API_URL, {
-    method:"POST",
-    headers:{ "Content-Type":"text/plain;charset=utf-8" },
+    method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
     body: JSON.stringify({ action:"logEvent", ...ev })
   });
   return res.json();
@@ -353,24 +432,61 @@ window.addEventListener("online", ()=>{ flushQueue(); updateSyncBadge(); });
 window.addEventListener("offline", updateSyncBadge);
 setInterval(flushQueue, 30000);
 
-/* ─── Timeline bar builder ──────────────────────────────────────────────── */
+/* ─── Ring arc updater ── */
+// Arc covers 270° (3/4 of circle). circumference of r=80 = 502.65
+const ARC_TOTAL = 502;
+function updateRing(){
+  const fill = $("#ringFill");
+  if (!fill || !shiftStart) return;
+  const targetMs = targets.minProductionHours * 3600000;
+  const prod = liveProdMs();
+  const pct = Math.min(1, prod / targetMs);
+  const offset = ARC_TOTAL - (pct * ARC_TOTAL);
+  fill.style.strokeDashoffset = offset;
+  const met = prod >= targetMs;
+  fill.className = "ring-fill " + (met ? "met" : (RING_CLASS[state] || "working"));
+
+  const prodEl = $("#prodNow");
+  if (!prodEl) return;
+  prodEl.textContent = fmtHM(prod);
+
+  const schedEnd = shiftStart.getTime() + targets.shiftLengthHours * 3600000;
+  const budget = (schedEnd - Date.now()) - (targetMs - prod);
+  const hint = $("#prodHint");
+  if (!hint) return;
+  if (met){
+    hint.className = "prod-hint met";
+    hint.textContent = "✓ " + targets.minProductionHours + "h target met";
+  } else if (budget <= 0){
+    hint.className = "prod-hint risk";
+    const doneAt = new Date(Date.now() + (targetMs - prod));
+    hint.textContent = "Stay until " + fmtClock(doneAt) + " to hit " + targets.minProductionHours + "h";
+  } else {
+    hint.className = "prod-hint" + (budget < 15*60000 ? " risk" : "");
+    hint.textContent = fmtHM(budget) + " break budget · done by " + fmtClock(new Date(schedEnd));
+  }
+  const elapsed = Date.now() - shiftStart.getTime();
+  const halfShift = targets.shiftLengthHours * 3600000 / 2;
+  if (!nudged.midpoint && elapsed > halfShift && state === "WORKING" && budget < 0){
+    nudged.midpoint = true;
+    toast("Heads up: at this pace you'll miss " + targets.minProductionHours + "h", true);
+    vibrate();
+  }
+}
+
+/* ─── Timeline ── */
 function buildTimelineSegs(evts, currentState, shiftStartTime, now){
-  // evts: [{ts (ISO), action}] sorted ascending
-  // Returns array of {type, pct}
   if (!shiftStartTime) return [];
   const start = new Date(shiftStartTime).getTime();
   const end = now;
   const total = Math.max(1, end - start);
-
   const segments = [];
   let cursor = start;
   let curState = "WORKING";
-
   const push = (type, from, to) => {
-    const w = Math.max(0, Math.min(to, end) - Math.max(from, start));
-    if (w > 0) segments.push({ type, pct: w / total * 100 });
+    const w = Math.max(0, Math.min(to,end) - Math.max(from,start));
+    if (w > 0) segments.push({ type, pct: w/total*100 });
   };
-
   for (const ev of evts){
     const ts = new Date(ev.ts).getTime();
     if (ts <= start) continue;
@@ -387,7 +503,7 @@ function timelineHtml(segments, legendItems){
   const bars = segments.map(s =>
     `<div class="timeline-seg ${s.type}" style="width:${s.pct.toFixed(2)}%"></div>`
   ).join("");
-  const legend = (legendItems||[]).map(({type, label}) =>
+  const legend = (legendItems||[]).map(({type,label}) =>
     `<span class="tl-item"><span class="tl-dot ${type}"></span>${esc(label)}</span>`
   ).join("");
   return `
@@ -409,21 +525,15 @@ function updateTimeline(){
   if (nowEl) nowEl.textContent = fmtClock(new Date());
 }
 
-/* ─── PIN gate for TIME IN ──────────────────────────────────────────────── */
-// Per-agent PIN stored in localStorage as tt_apin_<id>
-// On first TIME IN ever, no PIN is set — agent sets their own 4-digit PIN
-// On subsequent TIME IN, they must match it
-
+/* ─── PIN gate ── */
 function getAgentPin(id){ return localStorage.getItem("tt_apin_" + id) || null; }
 function setAgentPin(id, pin){ localStorage.setItem("tt_apin_" + id, pin); }
 
 function openPinGate(isNew, onSuccess, onCancel){
   const existing = document.getElementById("pinGateEl");
   if (existing) existing.remove();
-
   const div = document.createElement("div");
-  div.className = "pin-gate";
-  div.id = "pinGateEl";
+  div.className = "pin-gate"; div.id = "pinGateEl";
   div.innerHTML = `
     <h2>${isNew ? "Set your PIN" : "Verify your identity"}</h2>
     <p>${isNew
@@ -458,9 +568,7 @@ function openPinGate(isNew, onSuccess, onCancel){
         if (arr.map(x => x.value).join("").length === 4) onFull(arr.map(x => x.value).join(""));
       });
       inp.addEventListener("keydown", e => {
-        if (e.key === "Backspace" && !inp.value && i > 0){
-          arr[i-1].focus(); arr[i-1].value = "";
-        }
+        if (e.key === "Backspace" && !inp.value && i > 0){ arr[i-1].focus(); arr[i-1].value = ""; }
       });
     });
   };
@@ -470,14 +578,8 @@ function openPinGate(isNew, onSuccess, onCancel){
   if (!isNew){
     wireInputs(inputs, pin => {
       const stored = getAgentPin(employee.id);
-      if (pin === stored){
-        div.remove();
-        onSuccess();
-      } else {
-        setErr("Incorrect PIN. Try again.");
-        inputs.forEach(i => { i.value = ""; });
-        inputs[0].focus();
-      }
+      if (pin === stored){ div.remove(); onSuccess(); }
+      else { setErr("Incorrect PIN. Try again."); inputs.forEach(i => { i.value=""; }); inputs[0].focus(); }
     });
   } else {
     let firstPin = null;
@@ -488,14 +590,10 @@ function openPinGate(isNew, onSuccess, onCancel){
       confirms[0].focus();
     });
     wireInputs(confirms, pin => {
-      if (pin === firstPin){
-        setAgentPin(employee.id, pin);
-        div.remove();
-        onSuccess();
-      } else {
+      if (pin === firstPin){ setAgentPin(employee.id, pin); div.remove(); onSuccess(); }
+      else {
         setErr("PINs don't match. Try again.");
-        confirms.forEach(i => { i.value = ""; });
-        inputs.forEach(i => { i.value = ""; });
+        confirms.forEach(i => { i.value=""; }); inputs.forEach(i => { i.value=""; });
         firstPin = null;
         document.getElementById("pinConfirmRow").style.display = "none";
         document.getElementById("pg-confirm-label").style.display = "none";
@@ -503,16 +601,14 @@ function openPinGate(isNew, onSuccess, onCancel){
       }
     });
   }
-
   document.getElementById("pgCancel").addEventListener("click", () => { div.remove(); if (onCancel) onCancel(); });
 }
 
-/* ─── Actions ───────────────────────────────────────────────────────────── */
+/* ─── Actions ── */
 async function doAction(eventType){
   if (eventType === "TIME_IN"){
     const existingPin = getAgentPin(employee.id);
-    const isNew = !existingPin;
-    openPinGate(isNew, () => performAction(eventType), null);
+    openPinGate(!existingPin, () => performAction(eventType), null);
     return;
   }
   performAction(eventType);
@@ -520,25 +616,15 @@ async function doAction(eventType){
 
 async function performAction(eventType){
   const ev = {
-    eventId: uuid(),
-    employeeId: employee.id,
-    eventType,
-    clientTimestamp: new Date().toISOString()
+    eventId: uuid(), employeeId: employee.id,
+    eventType, clientTimestamp: new Date().toISOString()
   };
   const tapTime = new Date();
-
-  // Optimistic UI
   if (prodAnchor){ prodBaseMs += tapTime.getTime() - prodAnchor.getTime(); prodAnchor = null; }
-  if (eventType === "TIME_IN"){
-    shiftStart = tapTime; prodBaseMs = 0; nudged = { midpoint:false }; lastRecap = null;
-    shiftEvents = [];
-  }
+  if (eventType === "TIME_IN"){ shiftStart = tapTime; prodBaseMs = 0; nudged = { midpoint:false }; lastRecap = null; shiftEvents = []; }
   if (STATE_FROM_EVENT[eventType] === "WORKING") prodAnchor = tapTime;
-  if (eventType === "TIME_OUT"){ prodAnchor = null; }
-
-  // Track shift events for timeline
+  if (eventType === "TIME_OUT") prodAnchor = null;
   if (eventType !== "TIME_IN") shiftEvents.push({ ts: tapTime.toISOString(), action: eventType });
-
   state = STATE_FROM_EVENT[eventType];
   since = tapTime;
   localStorage.setItem("tt_state_" + employee.id, JSON.stringify({state, since: since.toISOString()}));
@@ -552,24 +638,20 @@ async function performAction(eventType){
     }catch(_){ queued = true; }
   } else queued = true;
 
-  if (queued){
-    setQueue([...getQueue(), ev]);
-    toast("✓ Saved offline · will sync");
-  } else {
-    toast("✓ Action recorded · " + fmtClock(new Date()));
-  }
+  if (queued){ setQueue([...getQueue(), ev]); toast("✓ Saved offline · will sync"); }
+  else toast("✓ " + fmtClock(new Date()));
   updateSyncBadge();
 
   if (eventType === "TIME_OUT" && navigator.onLine){
     try{
       const w = await fetchJSON(CONFIG.API_URL + "?action=week&id=" + encodeURIComponent(employee.id));
-      if (w.ok && w.days && w.days[0]) { weekData = w; lastRecap = w.days[0]; render(); }
+      if (w.ok && w.days && w.days[0]){ weekData = w; lastRecap = w.days[0]; render(); }
     }catch(_){}
   }
   if (eventType !== "TIME_IN") refreshFloor();
 }
 
-/* ─── Floor ─────────────────────────────────────────────────────────────── */
+/* ─── Floor ── */
 async function refreshFloor(){
   try{
     const r = await fetchJSON(CONFIG.API_URL + "?action=floor");
@@ -581,64 +663,83 @@ function floorHtml(){
   return `<span class="dot"></span><b>${floor.onFloor}</b> on the floor · <b>${floor.offFloor}</b> off`;
 }
 
-/* ─── Rendering ─────────────────────────────────────────────────────────── */
+/* ─── Timer ── */
+function startTimer(){
+  clearInterval(timerHandle);
+  const tick = () => {
+    const el = $("#elapsed"), line = $("#sinceLine");
+    if (!since){ if(el) el.textContent = "--:--:--"; if(line) line.textContent = ""; }
+    else {
+      const s = Math.max(0, Math.floor((Date.now() - since.getTime())/1000));
+      if(el) el.textContent = pad(Math.floor(s/3600)) + ":" + pad(Math.floor(s/60)%60) + ":" + pad(s%60);
+      if(line) line.textContent = "since " + fmtClock(since);
+    }
+    updateRing();
+    updateTimeline();
+  };
+  tick();
+  timerHandle = setInterval(tick, 1000);
+}
+
+/* ─── Render ── */
 function render(){
   document.body.dataset.state = state;
-  $("#whoami").textContent = employee ? employee.name + " · " + employee.id : "";
+  const whoEl = $("#whoami");
+  if (whoEl && employee){
+    whoEl.innerHTML = `${esc(employee.name)}<small>${esc(employee.id)}</small>`;
+  }
   if (view === "stats"){ renderStats(); return; }
 
   const segs = (shiftStart && state !== "LOGGED_OUT" && state !== "NOT_STARTED")
-    ? buildTimelineSegs(shiftEvents, state, shiftStart, new Date())
-    : [];
+    ? buildTimelineSegs(shiftEvents, state, shiftStart, new Date()) : [];
 
   // End-of-shift recap
   if (state === "LOGGED_OUT" && lastRecap){
     const r = lastRecap, met = r.metTarget;
-    // Build timeline for completed shift
-    const recapSegs = weekData && weekData.days && weekData.days[0] && weekData.days[0].segments
-      ? weekData.days[0].segments : segs;
     app.innerHTML = `
       <section class="recap">
-        <h2>Shift complete — ${esc(employee.name.split(" ")[0])}</h2>
+        <h2>Shift complete</h2>
         <div class="big ${met?'met':'miss'}">${fmtHrs(r.productionHours)}</div>
-        <div class="verdict" style="color:${met?'#5FE3A1':'#F58A8A'}">
-          ${met ? "✓ Hit the "+targets.minProductionHours+"h minimum" : "Below the "+targets.minProductionHours+"h minimum"}
-        </div>
-        <div class="grid">
+        <div class="verdict">${met ? "✓ Hit the "+targets.minProductionHours+"h minimum" : "Missed the "+targets.minProductionHours+"h minimum"}</div>
+        <div class="recap-grid">
           <div><b>${fmtHrs(r.lunchHours)}</b><span>Lunch</span></div>
           <div><b>${fmtHrs(r.breakHours)}</b><span>Break</span></div>
           <div><b>${fmtHrs(r.bioHours)}</b><span>Bio</span></div>
           <div><b>${fmtHrs(r.lockerHours)}</b><span>Locker</span></div>
         </div>
-        <div class="sched-line" style="margin-top:14px">${r.timeIn} → ${r.timeOut} · ${fmtHrs(r.loggedHours)} on shift</div>
+        <div class="sched-line">${r.timeIn} → ${r.timeOut} · ${fmtHrs(r.loggedHours)} on shift</div>
       </section>
       <div class="actions" style="margin-top:18px">
-        <button class="action a-TIME_IN" data-ev="TIME_IN">START NEW SHIFT</button>
+        <button class="action a-TIME_IN" data-ev="TIME_IN">Start new shift</button>
       </div>
       <div class="nav-row">
-        <button class="link-btn" id="statsBtn">📊 My stats</button>
+        <button class="link-btn" id="statsBtn">My stats →</button>
       </div>`;
-    bindButtons();
-    return;
+    bindButtons(); return;
   }
 
-  // LOGGED_OUT with no recap
   if (state === "LOGGED_OUT" && !lastRecap){
     app.innerHTML = `
-      <section class="state-card" aria-live="polite">
-        <div class="state-dot" data-s="LOGGED_OUT">${STATE_TEXT["LOGGED_OUT"]}</div>
-        <div class="elapsed" id="elapsed">--:--:--</div>
-        <div class="since" id="sinceLine"></div>
-      </section>
+      <div class="ring-hero">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+            <circle class="ring-track" cx="110" cy="110" r="80" stroke-dasharray="502" stroke-dashoffset="0" pathLength="502"/>
+            <circle id="ringFill" class="ring-fill out" cx="110" cy="110" r="80"/>
+          </svg>
+          <div class="ring-inner">
+            <div class="ring-state" data-s="LOGGED_OUT">${STATE_TEXT["LOGGED_OUT"]}</div>
+            <div id="elapsed">--:--:--</div>
+            <div id="sinceLine"></div>
+          </div>
+        </div>
+      </div>
       <div class="actions">
         ${btn("TIME_IN")}
       </div>
       <div class="nav-row">
-        <button class="link-btn" id="statsBtn">📊 My stats</button>
+        <button class="link-btn" id="statsBtn">My stats →</button>
       </div>`;
-    bindButtons();
-    startTimer();
-    return;
+    bindButtons(); startTimer(); return;
   }
 
   const actions = VALID_ACTIONS[state] || [];
@@ -653,32 +754,39 @@ function render(){
     buttonsHtml = actions.map(a => btn(a, isPause ? "a-RETURN" : "")).join("");
   }
 
-  // Build legend for timeline
   const usedTypes = [...new Set(segs.map(s => s.type))].filter(t => t !== "WORKING");
   const TLLABELS = { BREAK:"Break", LUNCH:"Lunch", BIO:"Bio", LOCKER:"Locker" };
   const legendItems = [{ type:"WORKING", label:"Working" }, ...usedTypes.map(t => ({ type:t, label:TLLABELS[t]||t }))];
 
+  const showRing = shiftStart && state !== "NOT_STARTED";
+  const ringClass = RING_CLASS[state] || "working";
+
   app.innerHTML = `
-    <section class="state-card" aria-live="polite">
-      <div class="state-dot" data-s="${state}">${STATE_TEXT[state]}</div>
-      <div class="elapsed" id="elapsed">--:--:--</div>
-      <div class="since" id="sinceLine"></div>
-    </section>
-    ${shiftStart && state !== "NOT_STARTED" ? timelineHtml(segs, legendItems) : ""}
-    ${shiftStart && state !== "LOGGED_OUT" && state !== "NOT_STARTED" ? `
-    <section class="prod-panel">
-      <div class="prod-row">
-        <span>Production time</span>
-        <b><span id="prodNow">0:00</span><span style="font-size:14px;color:var(--muted)"> / ${targets.minProductionHours}:00</span></b>
+    <div class="ring-hero">
+      <div class="ring-wrap">
+        <svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+          <circle class="ring-track" cx="110" cy="110" r="80" stroke-dasharray="502" stroke-dashoffset="0" pathLength="502"/>
+          <circle id="ringFill" class="ring-fill ${ringClass}" cx="110" cy="110" r="80" style="stroke-dashoffset:${showRing ? ARC_TOTAL : ARC_TOTAL}"/>
+        </svg>
+        <div class="ring-inner">
+          <div class="ring-state" data-s="${state}">${STATE_TEXT[state]}</div>
+          <div id="elapsed">--:--:--</div>
+          <div id="sinceLine"></div>
+        </div>
       </div>
-      <div class="prod-bar"><i id="prodBar" style="width:0%"></i></div>
+      ${showRing ? `
+      <div class="ring-prod-label" id="prodLabelWrap">
+        <span id="prodNow">0:00</span> / ${targets.minProductionHours}:00 production
+      </div>
       <div class="prod-hint" id="prodHint"></div>
-      ${schedule.length ? `<div class="sched-line">Your schedule: ${schedule.map(w=>`${w.type==="LUNCH"?"Lunch":"Break"} ${w.start}–${w.end}`).join(" · ")}</div>` : ""}
-    </section>` : ""}
+      ${schedule.length ? `<div class="sched-line">Schedule: ${schedule.map(w=>`${w.type==="LUNCH"?"Lunch":"Break"} ${w.start}–${w.end}`).join(" · ")}</div>` : ""}
+      ` : ""}
+    </div>
     ${state === "WORKING" ? `<div class="floor-line" id="floorLine">${floorHtml()}</div>` : ""}
+    ${shiftStart && state !== "NOT_STARTED" ? timelineHtml(segs, legendItems) : ""}
     <div class="actions">${buttonsHtml}</div>
     ${state !== "NOT_STARTED" ? `<div class="nav-row">
-      <button class="link-btn" id="statsBtn">📊 My stats</button>
+      <button class="link-btn" id="statsBtn">My stats →</button>
     </div>` : ""}`;
 
   bindButtons();
@@ -693,9 +801,9 @@ function bindButtons(){
   if (sb) sb.addEventListener("click", () => { view = "stats"; openStats(); });
 }
 
-/* ─── Stats view ────────────────────────────────────────────────────────── */
+/* ─── Stats ── */
 async function openStats(){
-  app.innerHTML = `<div class="loading">Loading your stats…</div>`;
+  app.innerHTML = `<div class="loading">Loading…</div>`;
   try{
     const w = await fetchJSON(CONFIG.API_URL + "?action=week&id=" + encodeURIComponent(employee.id));
     if (w.ok) weekData = w;
@@ -707,11 +815,9 @@ function renderStats(){
   clearInterval(timerHandle);
   const days = (weekData && weekData.days) || [];
   const targetH = (weekData && weekData.targetHours) || targets.minProductionHours;
-
-  // Tab switcher
   const tabs = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <h2 style="font-size:18px;font-weight:800">📊 My Stats</h2>
+    <div class="stats-header">
+      <h2>My Stats</h2>
       <button class="link-btn" id="backBtn">← Back</button>
     </div>
     <div class="stats-tabs">
@@ -721,21 +827,18 @@ function renderStats(){
     </div>`;
 
   let content = "";
-
   if (statsTab === "daily"){
-    // Today's shift — use most recent (index 0) or live data
     const today = days[0] || null;
     if (!today){
       content = `<div style="text-align:center;color:var(--muted);padding:32px 0;font-size:14px">No shift recorded yet today.</div>`;
     } else {
       content = shiftCardHtml(today, targetH, true);
     }
-    // If there's a live shift, show the live production too
     if (shiftStart && state !== "LOGGED_OUT"){
       const liveProd = liveProdMs();
       const livePct = Math.min(100, liveProd / (targetH * 3600000) * 100);
       content = `
-        <div class="shift-card" style="border-color:rgba(31,164,99,.4)">
+        <div class="shift-card" style="border-color:rgba(0,201,122,.3)">
           <div class="sc-top">
             <div class="sc-date">Live shift<small>${fmtClock(shiftStart)} → now</small></div>
             <div class="sc-prod ${liveProd >= targetH*3600000 ? 'met' : ''}">${fmtHM(liveProd)}</div>
@@ -795,14 +898,11 @@ function monthlyStatsHtml(days, targetH){
   if (!days.length) return `<div style="text-align:center;color:var(--muted);padding:32px 0;font-size:14px">No shifts recorded yet.</div>`;
   const completed = days.filter(d => !d.open);
   const metCount = completed.filter(d => d.productionHours >= targetH).length;
-  const hitRate = completed.length ? Math.round(metCount / completed.length * 100) : 0;
-  const avgProd = completed.length
-    ? completed.reduce((s, d) => s + d.productionHours, 0) / completed.length : 0;
-  const totalProd = days.reduce((s, d) => s + d.productionHours, 0);
-  const avgBreak = completed.length
-    ? completed.reduce((s,d) => s + d.breakHours + d.lunchHours + d.bioHours, 0) / completed.length : 0;
+  const hitRate = completed.length ? Math.round(metCount/completed.length*100) : 0;
+  const avgProd = completed.length ? completed.reduce((s,d)=>s+d.productionHours,0)/completed.length : 0;
+  const totalProd = days.reduce((s,d)=>s+d.productionHours,0);
+  const avgBreak = completed.length ? completed.reduce((s,d)=>s+d.breakHours+d.lunchHours+d.bioHours,0)/completed.length : 0;
   const hitColor = hitRate >= 80 ? "var(--working)" : hitRate >= 50 ? "var(--break)" : "var(--out)";
-
   return `
     <div class="month-card">
       <h3>Last ${days.length} shifts</h3>
@@ -818,55 +918,7 @@ function monthlyStatsHtml(days, targetH){
     ${days.map(d => shiftCardHtml(d, targetH, false)).join("")}`;
 }
 
-/* ─── Timer & production panel ──────────────────────────────────────────── */
-function startTimer(){
-  clearInterval(timerHandle);
-  const el = $("#elapsed"), line = $("#sinceLine");
-  const tick = () => {
-    if (!since){ if(el) el.textContent = "00:00:00"; if(line) line.textContent = ""; }
-    else {
-      const s = Math.max(0, Math.floor((Date.now() - since.getTime())/1000));
-      if(el) el.textContent = pad(Math.floor(s/3600)) + ":" + pad(Math.floor(s/60)%60) + ":" + pad(s%60);
-      if(line) line.textContent = "since " + fmtClock(since);
-    }
-    updateProdPanel();
-    updateTimeline();
-  };
-  tick();
-  timerHandle = setInterval(tick, 1000);
-}
-
-function updateProdPanel(){
-  const prodEl = $("#prodNow");
-  if (!prodEl || !shiftStart) return;
-  const targetMs = targets.minProductionHours * 3600000;
-  const prod = liveProdMs();
-  const bar = $("#prodBar"), hint = $("#prodHint");
-  prodEl.textContent = fmtHM(prod);
-  bar.style.width = Math.min(100, prod/targetMs*100) + "%";
-  const schedEnd = shiftStart.getTime() + targets.shiftLengthHours * 3600000;
-  const budget = (schedEnd - Date.now()) - (targetMs - prod);
-  if (prod >= targetMs){
-    bar.className = "met"; hint.className = "prod-hint met";
-    hint.textContent = "✓ " + targets.minProductionHours + "h target met";
-  } else if (budget <= 0){
-    bar.className = "risk"; hint.className = "prod-hint risk";
-    const doneAt = new Date(Date.now() + (targetMs - prod));
-    hint.textContent = "Past budget — stay until " + fmtClock(doneAt) + " to hit " + targets.minProductionHours + "h";
-  } else {
-    bar.className = ""; hint.className = "prod-hint" + (budget < 15*60000 ? " risk" : "");
-    hint.textContent = "Break budget: " + fmtHM(budget) + " · hit " + targets.minProductionHours + "h by " + fmtClock(new Date(schedEnd));
-  }
-  const elapsed = Date.now() - shiftStart.getTime();
-  const halfShift = targets.shiftLengthHours * 3600000 / 2;
-  if (!nudged.midpoint && elapsed > halfShift && state === "WORKING" && budget < 0){
-    nudged.midpoint = true;
-    toast("Heads up: at this pace you'll miss " + targets.minProductionHours + "h", true);
-    vibrate();
-  }
-}
-
-/* ─── Identification ────────────────────────────────────────────────────── */
+/* ─── Identification ── */
 async function fetchJSON(url){
   const r = await fetch(url);
   return r.json();
@@ -883,13 +935,13 @@ async function identify(){
   }catch(_){}
 
   if (!list || !list.length){
-    app.innerHTML = `<div class="error-screen"><b>Can't load the employee list.</b><br><br>Check your connection and reload, or open your personal link (…?id=YOUR_ID).</div>`;
+    app.innerHTML = `<div class="error-screen"><b>Can't load the employee list.</b>Check your connection and reload, or open your personal link (…?id=YOUR_ID).</div>`;
     return;
   }
   app.innerHTML = `
     <div class="identify">
       <h1>Who's clocking in?</h1>
-      <p>Tip: bookmark your personal link to skip this step.</p>
+      <p>Use your personal link to skip this step.</p>
       <select id="empSelect">
         ${list.map(e=>`<option value="${e.id}">${e.name} (${e.id})</option>`).join("")}
       </select>
@@ -897,15 +949,15 @@ async function identify(){
     </div>`;
   $("#goBtn").addEventListener("click", ()=>{
     const id = $("#empSelect").value;
-    history.replaceState(null,"", "?id=" + encodeURIComponent(id));
+    history.replaceState(null,"","?id=" + encodeURIComponent(id));
     resolveEmployee(id);
   });
 }
 
 async function resolveEmployee(id){
-  const cachedList = JSON.parse(localStorage.getItem("tt_employees") || "[]");
+  const cachedList = JSON.parse(localStorage.getItem("tt_employees")||"[]");
   const cachedEmp = cachedList.find(e=>e.id===id);
-  const cachedState = JSON.parse(localStorage.getItem("tt_state_" + id) || "null");
+  const cachedState = JSON.parse(localStorage.getItem("tt_state_" + id)||"null");
   if (cachedEmp){
     employee = cachedEmp;
     if (cachedState){ state = cachedState.state; since = new Date(cachedState.since); }
@@ -914,7 +966,7 @@ async function resolveEmployee(id){
   try{
     const r = await fetchJSON(CONFIG.API_URL + "?action=status&id=" + encodeURIComponent(id));
     if (!r.ok){
-      app.innerHTML = `<div class="error-screen"><b>${r.error}</b><br><br>Ask your supervisor to check your employee ID.</div>`;
+      app.innerHTML = `<div class="error-screen"><b>${r.error}</b>Ask your supervisor to check your employee ID.</div>`;
       return;
     }
     employee = r.employee;
@@ -935,22 +987,21 @@ async function resolveEmployee(id){
     render();
   }catch(_){
     if (!employee){
-      app.innerHTML = `<div class="error-screen"><b>You're offline and have no saved profile yet.</b><br><br>Connect to the internet once to set up this device.</div>`;
+      app.innerHTML = `<div class="error-screen"><b>You're offline and have no saved profile yet.</b>Connect to the internet once to set up this device.</div>`;
     }
   }
   updateSyncBadge();
 }
 
-/* ─── Helpers ───────────────────────────────────────────────────────────── */
 const fmtHrs = h => Math.floor(h) + ":" + pad(Math.round((h - Math.floor(h)) * 60));
 function btn(eventType, extraClass){
   return `<button class="action a-${eventType} ${extraClass||""}" data-ev="${eventType}">${LABELS[eventType]}</button>`;
 }
 
-/* ─── Boot ──────────────────────────────────────────────────────────────── */
+/* ─── Boot ── */
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 if (CONFIG.API_URL.startsWith("PASTE")){
-  app.innerHTML = `<div class="error-screen"><b>Setup needed:</b><br><br>Paste your Apps Script URL into CONFIG.API_URL in index.html.</div>`;
+  app.innerHTML = `<div class="error-screen"><b>Setup needed:</b>Paste your Apps Script URL into CONFIG.API_URL in index.html.</div>`;
 } else {
   updateSyncBadge();
   flushQueue();

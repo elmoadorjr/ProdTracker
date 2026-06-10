@@ -3,142 +3,222 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#101418">
+<meta name="theme-color" content="#0A0D10">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Time Tracker — Supervisor</title>
+<title>ProdTracker — Supervisor</title>
 <style>
   :root{
-    --ink:#101418; --panel:#181E24; --line:#262E36; --paper:#F6F7F8; --muted:#8A939E;
-    --working:#1FA463; --break:#E0A53C; --lunch:#E2702E; --bio:#3D7DD8;
-    --locker:#8B5CD6; --out:#C84545; --idle:#5A6672; --alert:#F25C5C;
+    --ink:#0A0D10; --panel:#12181F; --panel2:#1A2330; --line:#1F2933;
+    --paper:#EEF0F2; --muted:#5C6878; --muted2:#3A4554;
+    --working:#00C97A; --break:#F5A623; --lunch:#F5652A; --bio:#3D88F5;
+    --locker:#9B6EF5; --out:#E84545; --idle:#3A4554; --alert:#FF4D4D;
     --font:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   body{font-family:var(--font); background:var(--ink); color:var(--paper); min-height:100dvh}
-  main{max-width:1100px; margin:0 auto; padding:18px}
+  main{max-width:1140px; margin:0 auto; padding:0 20px 40px}
 
-  header{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px}
-  h1{font-size:20px; font-weight:800; letter-spacing:.01em}
-  .stamp{font-size:12px; color:var(--muted)}
+  /* ── Top bar ── */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:16px 20px; border-bottom:1px solid var(--line);
+    max-width:1140px; margin:0 auto;
+  }
+  .topbar-left{display:flex; align-items:center; gap:12px}
+  .topbar h1{font-size:17px; font-weight:800; letter-spacing:.02em}
+  .stamp{font-size:11px; color:var(--muted); font-weight:600; letter-spacing:.03em}
+  .topbar .dir-link{
+    font-size:12px; font-weight:700; color:var(--muted); text-decoration:none;
+    padding:5px 12px; border-radius:999px; border:1px solid var(--line);
+    transition:color .15s, border-color .15s;
+  }
+  .topbar .dir-link:hover{color:var(--paper); border-color:var(--muted2)}
 
-  .toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px}
+  /* ── Heat strip (signature element) ── */
+  .heat-strip{
+    background:var(--panel); border-bottom:1px solid var(--line);
+    padding:10px 20px; display:flex; align-items:center; gap:12px;
+    max-width:1140px; margin:0 auto; overflow-x:auto;
+  }
+  .heat-strip-label{
+    font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); white-space:nowrap; flex-shrink:0;
+  }
+  .heat-dots{display:flex; flex-wrap:wrap; gap:5px; flex:1}
+  .heat-dot{
+    width:12px; height:12px; border-radius:50%; flex-shrink:0;
+    transition:transform .2s; cursor:default;
+  }
+  .heat-dot:hover{transform:scale(1.5)}
+  .heat-dot.WORKING{background:var(--working)}
+  .heat-dot.BREAK{background:var(--break)}
+  .heat-dot.LUNCH{background:var(--lunch)}
+  .heat-dot.BIO{background:var(--bio)}
+  .heat-dot.LOCKER{background:var(--locker)}
+  .heat-dot.LOGGED_OUT{background:var(--out)}
+  .heat-dot.NOT_STARTED{background:var(--idle)}
+
+  /* ── Toolbar ── */
+  .toolbar{
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+    padding:16px 0 0;
+  }
   .tabs{
-    display:flex; background:var(--panel); border-radius:12px; padding:4px;
+    display:flex; background:var(--panel); border-radius:12px; padding:3px;
     border:1px solid var(--line); flex-wrap:wrap; gap:2px;
   }
   .tabs button{
     font-family:var(--font); font-size:13px; font-weight:700; color:var(--muted);
-    background:none; border:none; border-radius:9px; padding:9px 14px; cursor:pointer;
-    white-space:nowrap;
+    background:none; border:none; border-radius:9px; padding:8px 14px; cursor:pointer;
+    white-space:nowrap; transition:background .15s, color .15s;
   }
-  .tabs button.on{background:var(--paper); color:var(--ink)}
-  input[type=date]{
+  .tabs button.on{background:var(--panel2); color:var(--paper)}
+  input[type=date], input[type=month]{
     font-family:var(--font); background:var(--panel); border:1px solid var(--line);
-    color:var(--paper); border-radius:12px; padding:10px 12px; font-size:14px;
+    color:var(--paper); border-radius:12px; padding:10px 14px; font-size:14px;
   }
-  .refresh{
-    font-family:var(--font); font-size:14px; font-weight:800; color:#fff;
-    background:var(--bio); border:none; border-radius:12px; padding:11px 18px; cursor:pointer;
-    margin-left:auto;
-  }
-  .refresh:active{transform:scale(.97)}
-  .refresh:disabled{opacity:.5}
-
-  /* chips */
-  .chips{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:16px}
-  .chip{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px}
-  .chip b{display:block; font-size:26px; font-weight:800; font-variant-numeric:tabular-nums}
-  .chip span{font-size:12px; color:var(--muted)}
-  .chip.floor{background:linear-gradient(135deg,#143024,#0F2419); border-color:#1F5238}
-  .chip.floor b{color:#5FE3A1; font-size:32px}
-
-  .ghost{
+  .btn-refresh{
     font-family:var(--font); font-size:13px; font-weight:800; color:var(--paper);
-    background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:11px 14px; cursor:pointer;
+    background:var(--panel2); border:1px solid var(--line); border-radius:12px;
+    padding:10px 18px; cursor:pointer; margin-left:auto; transition:opacity .15s;
   }
-  .ghost:active{transform:scale(.97)}
-  .delta-pos{color:var(--working);font-weight:700} .delta-neg{color:var(--alert);font-weight:700}
-  .bar-cell{min-width:120px}
-  .minibar{height:7px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:4px}
-  .minibar i{display:block;height:100%;background:var(--working);border-radius:99px}
-  .minibar i.low{background:var(--alert)}
-
-  .form-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:520px;margin-bottom:16px}
-  .form-card h3{font-size:15px;margin-bottom:12px}
-  .form-card label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px;font-weight:700}
-  .form-card select,.form-card input{
-    width:100%;font-family:var(--font);font-size:15px;background:var(--ink);border:1px solid var(--line);
-    color:var(--paper);border-radius:10px;padding:11px;
+  .btn-refresh:disabled{opacity:.5}
+  .btn-ghost{
+    font-family:var(--font); font-size:13px; font-weight:700; color:var(--paper);
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:10px 14px; cursor:pointer; transition:background .15s;
   }
-  .form-card .go{margin-top:16px;width:100%;background:var(--working);border:none;color:#fff;font-weight:800;
-    font-size:15px;border-radius:12px;padding:13px;cursor:pointer;font-family:var(--font)}
-  .form-msg{font-size:13px;font-weight:700;margin-top:10px;min-height:16px}
-  .form-msg.ok{color:var(--working)} .form-msg.err{color:var(--alert)}
+  .btn-ghost:active{background:var(--panel2)}
 
-  /* table */
-  .tablewrap{background:var(--panel); border:1px solid var(--line); border-radius:14px; overflow-x:auto}
-  table{width:100%; border-collapse:collapse; font-size:14px; min-width:520px}
+  /* ── KPI chips ── */
+  .chips{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+    gap:10px; margin:18px 0 16px;
+  }
+  .chip{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:14px 16px;
+  }
+  .chip b{display:block; font-size:28px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.1}
+  .chip span{font-size:11px; color:var(--muted); font-weight:600; margin-top:3px; display:block}
+  .chip.floor{background:linear-gradient(135deg,#071813,#0A1F12); border-color:#1A4A35}
+  .chip.floor b{color:var(--working)}
+  .chip.alert-chip b{color:var(--alert)}
+
+  /* ── Table ── */
+  .tablewrap{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    overflow-x:auto;
+  }
+  table{width:100%; border-collapse:collapse; font-size:13px; min-width:520px}
+  thead tr{border-bottom:1px solid var(--line)}
   th{
-    text-align:left; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
-    color:var(--muted); padding:12px 14px; border-bottom:1px solid var(--line); white-space:nowrap;
+    text-align:left; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); padding:12px 14px; white-space:nowrap; font-weight:800;
   }
-  td{padding:11px 14px; border-bottom:1px solid var(--line); white-space:nowrap; font-variant-numeric:tabular-nums}
-  tr:last-child td{border-bottom:none}
+  td{
+    padding:11px 14px; border-bottom:1px solid var(--line);
+    white-space:nowrap; font-variant-numeric:tabular-nums;
+  }
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:rgba(255,255,255,.02)}
+  tr.flagged{background:rgba(255,77,77,.04)}
   tr.flagged td:first-child{box-shadow:inset 3px 0 0 var(--alert)}
   .num{text-align:right}
 
-  .pill{display:inline-flex; align-items:center; gap:7px; font-weight:700; font-size:13px}
-  .pill i{width:9px; height:9px; border-radius:50%; display:inline-block}
-  .s-WORKING i{background:var(--working)} .s-BREAK i{background:var(--break)}
-  .s-LUNCH i{background:var(--lunch)}     .s-BIO i{background:var(--bio)}
-  .s-LOCKER i{background:var(--locker)}   .s-LOGGED_OUT i{background:var(--out)}
-  .s-NOT_STARTED i{background:var(--idle)}
-  .alerts{color:var(--alert); font-size:12px; font-weight:700; white-space:normal; max-width:220px}
+  .pill{display:inline-flex; align-items:center; gap:6px; font-weight:700; font-size:12px}
+  .pill-dot{width:8px; height:8px; border-radius:50%; display:inline-block; flex-shrink:0}
+  .s-WORKING .pill-dot{background:var(--working)} .s-BREAK .pill-dot{background:var(--break)}
+  .s-LUNCH .pill-dot{background:var(--lunch)}     .s-BIO .pill-dot{background:var(--bio)}
+  .s-LOCKER .pill-dot{background:var(--locker)}   .s-LOGGED_OUT .pill-dot{background:var(--out)}
+  .s-NOT_STARTED .pill-dot{background:var(--idle)}
+  .alerts-cell{color:var(--alert); font-size:11px; font-weight:700; white-space:normal; max-width:200px; line-height:1.4}
   .muted{color:var(--muted)}
-  .empty{padding:28px; text-align:center; color:var(--muted)}
+  .delta-pos{color:var(--working); font-weight:700} .delta-neg{color:var(--alert); font-weight:700}
+  .empty{padding:32px; text-align:center; color:var(--muted); font-size:14px}
+  .minibar-wrap{min-width:90px}
+  .minibar{height:5px; border-radius:99px; background:var(--line); overflow:hidden; margin-top:5px}
+  .minibar i{display:block; height:100%; background:var(--working); border-radius:99px}
+  .minibar i.low{background:var(--alert)}
 
-  /* shift timeline in table */
-  .tl-cell{min-width:100px; width:130px}
-  .tl-mini{height:8px; border-radius:99px; background:rgba(255,255,255,.08); overflow:hidden; display:flex}
+  /* ── mini timeline in table ── */
+  .tl-cell{min-width:90px; width:110px}
+  .tl-mini{height:6px; border-radius:99px; background:var(--line); overflow:hidden; display:flex}
   .tl-seg{height:100%; min-width:0}
   .tl-seg.WORKING{background:var(--working)} .tl-seg.BREAK{background:var(--break)}
   .tl-seg.LUNCH{background:var(--lunch)} .tl-seg.BIO{background:var(--bio)}
-  .tl-seg.LOCKER{background:var(--locker)} .tl-seg.GAP{background:rgba(255,255,255,.08)}
-  .tl-time{font-size:10px;color:var(--muted);margin-top:3px;white-space:nowrap}
+  .tl-seg.LOCKER{background:var(--locker)} .tl-seg.GAP{background:var(--line)}
+  .tl-time{font-size:10px; color:var(--muted); margin-top:3px; white-space:nowrap}
 
-  /* PIN tab */
-  .pin-table td.pin-val{
-    font-size:17px;font-weight:800;letter-spacing:.3em;font-variant-numeric:tabular-nums;
-    color:var(--paper);
+  /* ── Form card ── */
+  .form-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:20px; max-width:520px; margin-bottom:16px;
   }
-  .pin-table td.pin-val.hidden-pin{filter:blur(5px);cursor:pointer;transition:filter .2s}
-  .pin-table td.pin-val.hidden-pin:hover{filter:blur(2px)}
-  .pin-table td.pin-val.revealed{filter:none;cursor:default}
-  .pin-note{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5}
+  .form-card h3{font-size:15px; font-weight:800; margin-bottom:14px}
+  .form-card label{display:block; font-size:11px; color:var(--muted); margin:12px 0 4px; font-weight:800; letter-spacing:.05em; text-transform:uppercase}
+  .form-card select, .form-card input[type=text], .form-card input[type=datetime-local]{
+    width:100%; font-family:var(--font); font-size:15px;
+    background:var(--ink); border:1px solid var(--line);
+    color:var(--paper); border-radius:10px; padding:11px;
+  }
+  .form-card .go{
+    margin-top:16px; width:100%; background:var(--working); border:none;
+    color:#001A0D; font-weight:800; font-size:15px; border-radius:12px;
+    padding:13px; cursor:pointer; font-family:var(--font);
+  }
+  .form-msg{font-size:13px; font-weight:700; margin-top:10px; min-height:16px}
+  .form-msg.ok{color:var(--working)} .form-msg.err{color:var(--alert)}
+
+  /* ── PIN tab ── */
+  .pin-note{font-size:12px; color:var(--muted); margin-bottom:14px; line-height:1.6}
+  .pin-val{font-size:16px; font-weight:800; letter-spacing:.3em; font-variant-numeric:tabular-nums}
+  .pin-val.hidden-pin{filter:blur(5px); cursor:pointer; transition:filter .2s}
+  .pin-val.hidden-pin:hover{filter:blur(2px)}
+  .pin-val.revealed{filter:none; cursor:default}
   .reveal-all{
-    font-family:var(--font);font-size:13px;font-weight:800;color:var(--paper);
-    background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;cursor:pointer;margin-bottom:12px;
+    font-family:var(--font); font-size:13px; font-weight:700; color:var(--paper);
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+    padding:8px 14px; cursor:pointer; margin-bottom:14px; display:inline-flex; align-items:center; gap:6px;
   }
 
-  /* PIN gate */
-  .gate{max-width:340px; margin:18vh auto 0; text-align:center; display:flex; flex-direction:column; gap:12px; padding:0 18px}
-  .gate h1{font-size:22px}
-  .gate p{font-size:13px; color:var(--muted)}
-  .gate input{
-    font-family:var(--font); font-size:22px; text-align:center; letter-spacing:.4em;
-    background:var(--panel); border:1px solid var(--line); color:var(--paper);
-    border-radius:14px; padding:14px;
+  /* ── PIN gate ── */
+  .gate{
+    max-width:360px; margin:16vh auto 0; text-align:center;
+    display:flex; flex-direction:column; gap:14px; padding:0 20px;
   }
+  .gate h1{font-size:24px; font-weight:800; letter-spacing:-.01em}
+  .gate p{font-size:13px; color:var(--muted); line-height:1.5}
+  .gate input{
+    font-family:var(--font); font-size:26px; text-align:center; letter-spacing:.4em;
+    background:var(--panel); border:1.5px solid var(--line); color:var(--paper);
+    border-radius:16px; padding:16px; transition:border-color .2s;
+  }
+  .gate input:focus{outline:none; border-color:var(--working)}
   .gate button{
-    font-family:var(--font); font-size:16px; font-weight:800; color:#fff;
+    font-family:var(--font); font-size:16px; font-weight:800; color:#001A0D;
     background:var(--working); border:none; border-radius:14px; padding:15px; cursor:pointer;
   }
   .gate .err{color:var(--alert); font-weight:700; min-height:18px; font-size:13px}
+
+  /* ── Section heading in content ── */
+  .section-note{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.6; padding:0 2px}
 </style>
 </head>
 <body>
+<div class="topbar">
+  <div class="topbar-left">
+    <h1>ProdTracker</h1>
+    <span class="stamp" id="stamp"></span>
+  </div>
+  <a href="menu.html" class="dir-link">Directory</a>
+</div>
+<div class="heat-strip" id="heatStrip" style="display:none">
+  <span class="heat-strip-label">Team</span>
+  <div class="heat-dots" id="heatDots"></div>
+</div>
 <main id="root"></main>
+
 <script>
 "use strict";
 const CONFIG = { API_URL: "https://script.google.com/macros/s/AKfycbwcyEGKlsGLzG_HC8quz8vsTfMwqwJxhJ2ARQadAFl7KvZz8yAYzn-j0t1qhd66mV5g7A/exec" };
@@ -163,8 +243,8 @@ const STATE_FROM_EVENT = {
   LOCKER_START:"LOCKER", LOCKER_END:"WORKING"
 };
 const fmtSince = iso => iso ? new Date(iso).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "—";
-const fmtMin = m => m==null ? "" : (m>=60 ? Math.floor(m/60)+"h "+(m%60)+"m" : m+"m");
-const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtMin = m => m==null?"":m>=60?Math.floor(m/60)+"h "+(m%60)+"m":m+"m";
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 async function api(params){
   const qs = new URLSearchParams({...params, pin}).toString();
@@ -175,29 +255,38 @@ async function api(params){
   return data;
 }
 
-/* ─── Mini shift timeline ─────────────────────────────────────────────── */
+/* ── Heat strip ── */
+function updateHeatStrip(teamArr){
+  const strip = document.getElementById("heatStrip");
+  const dots = document.getElementById("heatDots");
+  if (!teamArr || !teamArr.length){ strip.style.display = "none"; return; }
+  strip.style.display = "flex";
+  const order = ["WORKING","BREAK","LUNCH","BIO","LOCKER","LOGGED_OUT","NOT_STARTED"];
+  const sorted = [...teamArr].sort((a,b) => order.indexOf(a.state) - order.indexOf(b.state));
+  dots.innerHTML = sorted.map(e =>
+    `<div class="heat-dot ${e.state}" title="${esc(e.name)} — ${STATE_LABEL[e.state]}"></div>`
+  ).join("");
+}
+
+/* ── Mini timeline ── */
 function buildMiniTimeline(shiftStartIso, shiftEndIso, eventsArr){
-  // eventsArr: [{ts, action}] sorted asc (from team status — only provided for open shifts)
   if (!shiftStartIso) return "";
   const start = new Date(shiftStartIso).getTime();
   const end = shiftEndIso ? new Date(shiftEndIso).getTime() : Date.now();
   const total = Math.max(1, end - start);
   const fmtT = iso => new Date(iso).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
-
   const segs = [];
-  let cursor = start;
-  let curState = "WORKING";
+  let cursor = start, curState = "WORKING";
   for (const ev of (eventsArr||[])){
     const ts = new Date(ev.ts).getTime();
     if (ts <= start) continue;
-    const w = Math.max(0, Math.min(ts, end) - cursor);
+    const w = Math.max(0, Math.min(ts,end) - cursor);
     if (w > 0) segs.push({ type: curState, pct: w/total*100 });
     cursor = ts;
     curState = STATE_FROM_EVENT[ev.action] || curState;
   }
   const remaining = Math.max(0, end - cursor);
   if (remaining > 0) segs.push({ type: curState, pct: remaining/total*100 });
-
   const bars = segs.map(s => `<div class="tl-seg ${s.type}" style="width:${s.pct.toFixed(1)}%"></div>`).join("");
   return `<td class="tl-cell">
     <div class="tl-mini">${bars}</div>
@@ -205,12 +294,12 @@ function buildMiniTimeline(shiftStartIso, shiftEndIso, eventsArr){
   </td>`;
 }
 
-/* ─── PIN gate ────────────────────────────────────────────────────────── */
+/* ── PIN gate ── */
 function renderGate(err){
   root.innerHTML = `
     <div class="gate">
-      <h1>Supervisor Dashboard</h1>
-      <p>Enter the supervisor PIN to continue.</p>
+      <h1>Supervisor access</h1>
+      <p>Enter the supervisor PIN to view your team's dashboard.</p>
       <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" placeholder="••••">
       <div class="err">${err||""}</div>
       <button id="pinGo">Unlock</button>
@@ -218,41 +307,33 @@ function renderGate(err){
   const input = document.getElementById("pinInput");
   const go = async () => {
     pin = input.value.trim();
-    try{
-      await api({action:"team"});
-      sessionStorage.setItem("tt_pin", pin);
-      renderShell(); load();
-    }catch(e){}
+    try{ await api({action:"team"}); sessionStorage.setItem("tt_pin",pin); renderShell(); load(); }catch(e){}
   };
   document.getElementById("pinGo").addEventListener("click", go);
   input.addEventListener("keydown", e=>{ if(e.key==="Enter") go(); });
   input.focus();
 }
 
-/* ─── Shell ───────────────────────────────────────────────────────────── */
+/* ── Shell ── */
 function renderShell(){
   root.innerHTML = `
-    <header>
-      <h1>Team Time Tracker</h1>
-      <span class="stamp" id="stamp"></span>
-    </header>
     <div class="toolbar">
       <div class="tabs">
-        <button id="tabLive">Live status</button>
-        <button id="tabSummary">Daily summary</button>
+        <button id="tabLive">Live</button>
+        <button id="tabSummary">Daily</button>
         <button id="tabReconcile">Reconcile</button>
         <button id="tabStats">Stats</button>
         <button id="tabFix">Corrections</button>
-        <button id="tabPins">🔑 Pins</button>
+        <button id="tabPins">PINs</button>
       </div>
       <input type="date" id="datePick" value="${summaryDate}" style="display:none">
       <input type="month" id="monthPick" value="${summaryDate.slice(0,7)}" style="display:none">
-      <button class="ghost" id="exportBtn" style="display:none">⬇ CSV</button>
-      <button class="refresh" id="refreshBtn">↻ Refresh</button>
+      <button class="btn-ghost" id="exportBtn" style="display:none">Export CSV</button>
+      <button class="btn-refresh" id="refreshBtn">↻ Refresh</button>
     </div>
     <div id="content"><div class="empty">Loading…</div></div>`;
 
-  const T = (id,name)=>document.getElementById(id).addEventListener("click", ()=>{ tab=name; load(); });
+  const T = (id,name)=>document.getElementById(id).addEventListener("click",()=>{ tab=name; load(); });
   T("tabLive","live"); T("tabSummary","summary"); T("tabReconcile","reconcile");
   T("tabStats","stats"); T("tabFix","fix"); T("tabPins","pins");
   document.getElementById("refreshBtn").addEventListener("click", load);
@@ -268,72 +349,80 @@ async function load(){
     if (el) el.className = (tab===n.toLowerCase())?"on":"";
   });
   const usesDate = (tab==="summary"||tab==="reconcile");
-  document.getElementById("datePick").style.display = usesDate ? "" : "none";
-  document.getElementById("monthPick").style.display = (tab==="stats") ? "" : "none";
-  document.getElementById("exportBtn").style.display = (tab==="summary"||tab==="stats") ? "" : "none";
-  btn.disabled = true; btn.textContent = "↻ Loading…";
+  document.getElementById("datePick").style.display = usesDate?"":"none";
+  document.getElementById("monthPick").style.display = (tab==="stats")?"":"none";
+  document.getElementById("exportBtn").style.display = (tab==="summary"||tab==="stats")?"":"none";
+  if (btn){ btn.disabled=true; btn.textContent="Loading…"; }
   try{
     if (tab==="live"){ lastLive = await api({action:"team"}); renderLive(lastLive); }
-    else if (tab==="summary"){ lastSummary = await api({action:"summary", date:summaryDate}); renderSummary(lastSummary); }
-    else if (tab==="reconcile"){ lastReconcile = await api({action:"reconcile", date:summaryDate}); renderReconcile(lastReconcile); }
-    else if (tab==="stats"){ lastStats = await api({action:"stats", month:statsMonth}); renderStats(lastStats); }
+    else if (tab==="summary"){ lastSummary = await api({action:"summary",date:summaryDate}); renderSummary(lastSummary); }
+    else if (tab==="reconcile"){ lastReconcile = await api({action:"reconcile",date:summaryDate}); renderReconcile(lastReconcile); }
+    else if (tab==="stats"){ lastStats = await api({action:"stats",month:statsMonth}); renderStats(lastStats); }
     else if (tab==="fix"){ await renderFix(); }
     else if (tab==="pins"){ await renderPins(); }
-    document.getElementById("stamp").textContent = "Updated " + new Date().toLocaleTimeString();
+    const stamp = document.getElementById("stamp");
+    if (stamp) stamp.textContent = "Updated " + new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
   }catch(e){
-    if (e.message!=="pin")
-      document.getElementById("content").innerHTML = `<div class="empty">Couldn't load data: ${esc(e.message)}. Check connection and refresh.</div>`;
+    if (e.message!=="pin" && document.getElementById("content"))
+      document.getElementById("content").innerHTML = `<div class="empty">Couldn't load: ${esc(e.message)}.</div>`;
   }
-  if (document.getElementById("refreshBtn")){ btn.disabled = false; btn.textContent = "↻ Refresh"; }
+  if (document.getElementById("refreshBtn")){ btn.disabled=false; btn.textContent="↻ Refresh"; }
 }
 
-/* ─── Live view ───────────────────────────────────────────────────────── */
+/* ── Live ── */
 function renderLive(data){
   const t = data.team;
+  updateHeatStrip(t);
   const count = s => t.filter(e=>e.state===s).length;
   const loggedIn = t.filter(e=>!["LOGGED_OUT","NOT_STARTED"].includes(e.state)).length;
+  const alertCount = t.filter(e=>e.alerts.length).length;
 
   const chips = `
     <div class="chips">
-      <div class="chip floor"><b>${data.floor.onFloor}<span style="font-size:14px;color:#6DC49A"> / ${loggedIn}</span></b><span>On the floor now</span></div>
+      <div class="chip floor"><b>${data.floor.onFloor}<span style="font-size:14px;color:rgba(0,201,122,.6)"> / ${loggedIn}</span></b><span>On the floor</span></div>
       <div class="chip"><b>${data.floor.offFloor}</b><span>Off floor</span></div>
       <div class="chip"><b>${count("LUNCH")}</b><span>On lunch</span></div>
       <div class="chip"><b>${t.filter(e=>e.targetMet).length}</b><span>Hit ${data.targetHours}h target</span></div>
-      <div class="chip"><b style="color:${t.filter(e=>e.alerts.length).length?"var(--alert)":"inherit"}">${t.filter(e=>e.alerts.length).length}</b><span>Alerts</span></div>
+      <div class="chip ${alertCount?'alert-chip':''}"><b>${alertCount}</b><span>Alerts</span></div>
     </div>`;
 
   const fmtProd = e => {
     if (e.productionMs == null) return '<span class="muted">—</span>';
     const m = Math.floor(e.productionMs/60000);
     const txt = Math.floor(m/60) + "h " + String(m%60).padStart(2,"0") + "m";
-    return e.targetMet ? `<b style="color:var(--working)">${txt} ✓</b>` : `<b>${txt}</b> <span class="muted">/ ${data.targetHours}h</span>`;
+    return e.targetMet
+      ? `<b style="color:var(--working)">${txt} ✓</b>`
+      : `<b>${txt}</b> <span class="muted">/ ${data.targetHours}h</span>`;
   };
 
   const rows = t
-    .sort((a,b)=> (b.alerts.length-a.alerts.length) || a.name.localeCompare(b.name))
+    .sort((a,b)=>(b.alerts.length-a.alerts.length)||a.name.localeCompare(b.name))
     .map(e=>{
-      const tlCell = (e.shiftStart)
-        ? buildMiniTimeline(e.shiftStart, e.state === "LOGGED_OUT" ? e.since : null, e.shiftEvents || [])
+      const tlCell = e.shiftStart
+        ? buildMiniTimeline(e.shiftStart, e.state==="LOGGED_OUT"?e.since:null, e.shiftEvents||[])
         : `<td class="tl-cell muted" style="font-size:11px">—</td>`;
-      return `
-      <tr class="${e.alerts.length?'flagged':''}">
-        <td><b>${esc(e.name)}</b> <span class="muted">${esc(e.id)}</span></td>
-        <td><span class="pill s-${e.state}"><i></i>${STATE_LABEL[e.state]}</span></td>
+      return `<tr class="${e.alerts.length?'flagged':''}">
+        <td><b>${esc(e.name)}</b> <span class="muted" style="font-size:11px">${esc(e.id)}</span></td>
+        <td><span class="pill s-${e.state}"><span class="pill-dot"></span>${STATE_LABEL[e.state]}</span></td>
         <td>${fmtSince(e.since)}</td>
         <td class="num muted">${fmtMin(e.minutesInState)}</td>
         <td class="num">${fmtProd(e)}</td>
         ${tlCell}
-        <td class="alerts">${e.alerts.map(esc).join(" · ")||""}</td>
-      </tr>`;}).join("");
+        <td class="alerts-cell">${e.alerts.map(esc).join(" · ")||""}</td>
+      </tr>`;
+    }).join("");
 
   document.getElementById("content").innerHTML = chips + `
     <div class="tablewrap"><table>
-      <thead><tr><th>Employee</th><th>Status</th><th>Since</th><th>For</th><th class="num">Production</th><th>Timeline</th><th>Alerts</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="7" class="empty">No employees configured.</td></tr>`}</tbody>
+      <thead><tr>
+        <th>Employee</th><th>Status</th><th>Since</th><th class="num">For</th>
+        <th class="num">Production</th><th>Timeline</th><th>Alerts</th>
+      </tr></thead>
+      <tbody>${rows||`<tr><td colspan="7" class="empty">No employees configured.</td></tr>`}</tbody>
     </table></div>`;
 }
 
-/* ─── Summary view ────────────────────────────────────────────────────── */
+/* ── Summary ── */
 function renderSummary(data){
   const r = data.rows, t = data.totals;
   const chips = `
@@ -343,29 +432,33 @@ function renderSummary(data){
       <div class="chip"><b>${t.totalNonProductionHours}h</b><span>Total non-production</span></div>
     </div>`;
   const rows = r
-    .sort((a,b)=> (b.alerts.length-a.alerts.length) || a.employeeName.localeCompare(b.employeeName))
+    .sort((a,b)=>(b.alerts.length-a.alerts.length)||a.employeeName.localeCompare(b.employeeName))
     .map(e=>{
       const met = e.productionHours >= (data.targetHours||7);
       const prodCell = `<b style="color:${met?'var(--working)':(e.open?'inherit':'var(--alert)')}">${e.productionHours}h${met?' ✓':''}</b>`;
       return `<tr class="${e.alerts.length?'flagged':''}">
-        <td><b>${esc(e.employeeName)}</b> <span class="muted">${esc(e.employeeId)}</span></td>
+        <td><b>${esc(e.employeeName)}</b> <span class="muted" style="font-size:11px">${esc(e.employeeId)}</span></td>
         <td>${e.timeIn} → ${e.timeOut}${e.open?' <span class="muted">(open)</span>':''}</td>
         <td class="num">${prodCell}</td>
         <td class="num">${e.lunchHours}h</td>
         <td class="num">${e.breakHours}h</td>
         <td class="num">${e.bioHours}h</td>
         <td class="num">${e.lockerHours}h</td>
-        <td class="alerts">${e.alerts.map(esc).join(" · ")||""}</td>
-      </tr>`;}).join("");
+        <td class="alerts-cell">${e.alerts.map(esc).join(" · ")||""}</td>
+      </tr>`;
+    }).join("");
   document.getElementById("content").innerHTML = chips + `
     <div class="tablewrap"><table>
-      <thead><tr><th>Employee</th><th>Shift</th><th class="num">Production</th><th class="num">Lunch</th>
-        <th class="num">Break</th><th class="num">Bio</th><th class="num">Locker</th><th>Alerts</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="8" class="empty">No shifts on this date.</td></tr>`}</tbody>
+      <thead><tr>
+        <th>Employee</th><th>Shift</th><th class="num">Production</th>
+        <th class="num">Lunch</th><th class="num">Break</th>
+        <th class="num">Bio</th><th class="num">Locker</th><th>Alerts</th>
+      </tr></thead>
+      <tbody>${rows||`<tr><td colspan="8" class="empty">No shifts on this date.</td></tr>`}</tbody>
     </table></div>`;
 }
 
-/* ─── Reconcile view ──────────────────────────────────────────────────── */
+/* ── Reconcile ── */
 function renderReconcile(data){
   if (!data.hasBiometric){
     document.getElementById("content").innerHTML = `<div class="empty">
@@ -377,10 +470,11 @@ function renderReconcile(data){
   const flagged = data.rows.filter(r=>r.flag).length;
   const chips = `<div class="chips">
     <div class="chip"><b>${data.rows.filter(r=>r.bioHours!=null).length}</b><span>Matched on ${esc(data.date)}</span></div>
-    <div class="chip"><b style="color:${flagged?'var(--alert)':'var(--working)'}">${flagged}</b><span>Mismatches ≥ 30 min</span></div>
+    <div class="chip ${flagged?'alert-chip':''}"><b>${flagged}</b><span>Mismatches ≥ 30 min</span></div>
   </div>`;
   const rows = data.rows.sort((a,b)=>Math.abs(b.delta||0)-Math.abs(a.delta||0)).map(r=>{
-    if (r.bioHours==null) return `<tr><td><b>${esc(r.employeeName)}</b> <span class="muted">${esc(r.employeeId)}</span></td>
+    if (r.bioHours==null) return `<tr>
+      <td><b>${esc(r.employeeName)}</b> <span class="muted">${esc(r.employeeId)}</span></td>
       <td class="num">${r.appHours}h</td><td class="num muted">no data</td><td class="num muted">—</td></tr>`;
     const d = r.delta, cls = Math.abs(d)<0.5?"muted":(d>0?"delta-pos":"delta-neg");
     return `<tr class="${r.flag?'flagged':''}">
@@ -393,10 +487,10 @@ function renderReconcile(data){
       <thead><tr><th>Employee</th><th class="num">App production</th><th class="num">Biometric</th><th class="num">Delta</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
-    <p class="muted" style="font-size:12px;margin-top:10px">A large positive delta usually means someone isn't tapping when they leave the floor.</p>`;
+    <p class="section-note">A positive delta usually means someone isn't tapping when they leave the floor.</p>`;
 }
 
-/* ─── Monthly stats view ─────────────────────────────────────────────── */
+/* ── Monthly stats ── */
 function renderStats(data){
   const r = data.rows;
   if (!r.length){ document.getElementById("content").innerHTML = `<div class="empty">No completed shifts in ${esc(data.month)}.</div>`; return; }
@@ -411,9 +505,9 @@ function renderStats(data){
     const pct = Math.min(100, e.avgProductionHours/data.targetHours*100);
     const hitColor = e.targetHitRate>=80?"var(--working)":e.targetHitRate>=50?"var(--break)":"var(--alert)";
     return `<tr>
-      <td><b>${esc(e.employeeName)}</b> <span class="muted">${esc(e.employeeId)}</span></td>
+      <td><b>${esc(e.employeeName)}</b> <span class="muted" style="font-size:11px">${esc(e.employeeId)}</span></td>
       <td class="num">${e.shifts}</td>
-      <td class="bar-cell"><b>${e.avgProductionHours}h</b><div class="minibar"><i class="${pct<100?'low':''}" style="width:${pct}%"></i></div></td>
+      <td class="minibar-wrap"><b>${e.avgProductionHours}h</b><div class="minibar"><i class="${pct<100?'low':''}" style="width:${pct}%"></i></div></td>
       <td class="num">${e.avgNonProductionHours}h</td>
       <td class="num"><b style="color:${hitColor}">${e.targetHitRate}%</b></td>
       <td class="num muted">${e.totalProductionHours}h</td>
@@ -421,12 +515,15 @@ function renderStats(data){
   }).join("");
   document.getElementById("content").innerHTML = chips + `
     <div class="tablewrap"><table>
-      <thead><tr><th>Employee</th><th class="num">Shifts</th><th>Avg production</th><th class="num">Avg non-prod</th><th class="num">${data.targetHours}h hit rate</th><th class="num">Total prod</th></tr></thead>
+      <thead><tr>
+        <th>Employee</th><th class="num">Shifts</th><th>Avg production</th>
+        <th class="num">Avg non-prod</th><th class="num">${data.targetHours}h hit rate</th><th class="num">Total prod</th>
+      </tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
 }
 
-/* ─── Corrections ────────────────────────────────────────────────────── */
+/* ── Corrections ── */
 async function getEmployeesList(){
   if (employeesCache) return employeesCache;
   const r = await fetch(CONFIG.API_URL + "?action=employees").then(x=>x.json());
@@ -440,7 +537,7 @@ async function renderFix(){
   document.getElementById("content").innerHTML = `
     <div class="form-card">
       <h3>Add a missed event</h3>
-      <p class="muted" style="font-size:12px">Use when someone forgot to tap. Logged with an audit note.</p>
+      <p class="muted" style="font-size:12px;margin-bottom:4px">Use when someone forgot to tap. Logged with an audit note.</p>
       <label>Employee</label>
       <select id="fxEmp">${emps.map(e=>`<option value="${e.id}">${esc(e.name)} (${e.id})</option>`).join("")}</select>
       <label>Action</label>
@@ -452,14 +549,14 @@ async function renderFix(){
       <button class="go" id="fxGo">Add event</button>
       <div class="form-msg" id="fxMsg"></div>
     </div>
-    <p class="muted" style="font-size:12px">To edit or delete: use the <b>Events</b> sheet directly — Event ID is in column A.</p>`;
+    <p class="section-note">To edit or delete: use the <b>Events</b> sheet directly — Event ID is in column A.</p>`;
   document.getElementById("fxGo").addEventListener("click", submitFix);
 }
 async function submitFix(){
   const msg = document.getElementById("fxMsg"), btn = document.getElementById("fxGo");
   const localVal = document.getElementById("fxTime").value;
   if (!localVal){ msg.className="form-msg err"; msg.textContent="Pick a date and time."; return; }
-  btn.disabled = true; btn.textContent = "Adding…";
+  btn.disabled=true; btn.textContent="Adding…";
   try{
     const res = await fetch(CONFIG.API_URL, {
       method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
@@ -474,120 +571,99 @@ async function submitFix(){
     if (res.ok){ msg.className="form-msg ok"; msg.textContent="✓ Event added."; document.getElementById("fxNote").value=""; }
     else { msg.className="form-msg err"; msg.textContent = res.error || "Failed."; }
   }catch(e){ msg.className="form-msg err"; msg.textContent="Network error."; }
-  btn.disabled = false; btn.textContent = "Add event";
+  btn.disabled=false; btn.textContent="Add event";
 }
 
-/* ─── PINs tab ───────────────────────────────────────────────────────── */
+/* ── PINs ── */
 async function renderPins(){
   document.getElementById("content").innerHTML = `<div class="empty">Loading agent PINs…</div>`;
   const emps = await getEmployeesList();
-
-  // Agent PINs are stored in each agent's localStorage on their device, keyed tt_apin_<id>.
-  // From the supervisor side, we can only read pins that have been shared or stored here.
-  // We display a table with "Set by agent" / "Not yet set" indicators.
-  // Supervisors can also manually reset a PIN from here (stored server-side via Config, or we use
-  // a local "supervisor override" concept stored in sessionStorage for this session).
-
-  // Read any locally known PINs (e.g. if supervisor is on the same device, or loaded from API)
-  // We use the agentPins endpoint if available, fallback to localStorage.
   let serverPins = {};
-  try {
-    const r = await api({ action: "agentPins" });
+  try{
+    const r = await api({ action:"agentPins" });
     if (r.ok && r.pins) serverPins = r.pins;
-  } catch(_){}
+  }catch(_){}
 
-  const rows = emps.map(e => {
+  const rows = emps.map(e=>{
     const pinVal = serverPins[e.id] || localStorage.getItem("tt_apin_" + e.id);
     const set = !!pinVal;
     return `<tr>
       <td><b>${esc(e.name)}</b></td>
-      <td class="muted">${esc(e.id)}</td>
-      <td class="pin-val hidden-pin" id="pin-cell-${esc(e.id)}" data-pin="${set ? esc(pinVal) : ''}" title="${set ? 'Click to reveal' : 'Not set'}">
-        ${set ? "••••" : '<span style="color:var(--muted);font-size:13px;font-weight:500;letter-spacing:0">Not set</span>'}
+      <td class="muted" style="font-size:12px">${esc(e.id)}</td>
+      <td class="pin-val hidden-pin" id="pin-cell-${esc(e.id)}" data-pin="${set?esc(pinVal):''}" title="${set?'Click to reveal':'Not set'}">
+        ${set?"••••":'<span style="color:var(--muted);font-size:12px;font-weight:500;letter-spacing:0">Not set</span>'}
       </td>
       <td>
         ${set
-          ? `<button class="ghost" style="font-size:12px;padding:6px 10px" onclick="resetPin('${esc(e.id)}', this)">Reset PIN</button>`
-          : `<span style="font-size:12px;color:var(--muted)">Agent sets on first clock-in</span>`
+          ? `<button class="btn-ghost" style="font-size:12px;padding:5px 10px" onclick="resetPin('${esc(e.id)}',this)">Reset</button>`
+          : `<span style="font-size:11px;color:var(--muted)">Agent sets on first clock-in</span>`
         }
       </td>
     </tr>`;
   }).join("");
 
   document.getElementById("content").innerHTML = `
-    <p class="pin-note">
-      Each agent sets their own 4-digit PIN the first time they clock in. The PIN lives on their device.
-      If an agent forgets their PIN, click <b>Reset PIN</b> to clear it — they'll be prompted to set a new one at next clock-in.
-      <br>Click any •••• to reveal the PIN for that agent.
-    </p>
-    <button class="reveal-all" id="revealAllBtn">👁 Reveal all PINs</button>
-    <div class="tablewrap"><table class="pin-table">
+    <p class="pin-note">Each agent sets their 4-digit PIN on first clock-in. Click <b>Reset</b> to clear it — they'll create a new one at their next clock-in.<br>Click any •••• to reveal.</p>
+    <button class="reveal-all" id="revealAllBtn">Reveal all PINs</button>
+    <div class="tablewrap"><table>
       <thead><tr><th>Name</th><th>ID</th><th>PIN</th><th>Action</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>`;
 
-  // Reveal individual PIN on click
   document.querySelectorAll(".pin-val.hidden-pin").forEach(cell => {
-    cell.addEventListener("click", () => {
+    cell.addEventListener("click", ()=>{
       const p = cell.dataset.pin;
       if (!p) return;
       cell.textContent = p;
-      cell.classList.remove("hidden-pin");
-      cell.classList.add("revealed");
+      cell.classList.remove("hidden-pin"); cell.classList.add("revealed");
     });
   });
-
-  document.getElementById("revealAllBtn").addEventListener("click", () => {
-    document.querySelectorAll(".pin-val.hidden-pin").forEach(cell => {
+  document.getElementById("revealAllBtn").addEventListener("click", ()=>{
+    document.querySelectorAll(".pin-val.hidden-pin").forEach(cell=>{
       const p = cell.dataset.pin;
-      if (p){ cell.textContent = p; cell.classList.remove("hidden-pin"); cell.classList.add("revealed"); }
+      if (p){ cell.textContent=p; cell.classList.remove("hidden-pin"); cell.classList.add("revealed"); }
     });
   });
 }
 
 function resetPin(empId, btn){
-  if (!confirm("Reset PIN for this agent? They will need to set a new one at their next clock-in.")) return;
-  // Remove from localStorage (if on same device) and notify
+  if (!confirm("Reset PIN for this agent?")) return;
   localStorage.removeItem("tt_apin_" + empId);
-  // Also attempt server-side reset
   fetch(CONFIG.API_URL, {
     method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
     body: JSON.stringify({ action:"resetAgentPin", pin, employeeId: empId })
   }).catch(()=>{});
-  btn.textContent = "✓ Reset";
-  btn.disabled = true;
-  // Update cell
+  btn.textContent="✓ Reset"; btn.disabled=true;
   const cell = document.getElementById("pin-cell-" + empId);
   if (cell){
-    cell.innerHTML = '<span style="color:var(--muted);font-size:13px;font-weight:500;letter-spacing:0">Not set</span>';
-    cell.classList.remove("hidden-pin","revealed");
-    cell.dataset.pin = "";
+    cell.innerHTML = '<span style="color:var(--muted);font-size:12px;font-weight:500;letter-spacing:0">Not set</span>';
+    cell.classList.remove("hidden-pin","revealed"); cell.dataset.pin="";
   }
 }
 
-/* ─── CSV export ─────────────────────────────────────────────────────── */
+/* ── CSV export ── */
 function downloadCSV(filename, rows){
   const csv = rows.map(r=>r.map(c=>{
     const s = String(c==null?"":c);
-    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+    return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
   }).join(",")).join("\n");
-  const blob = new Blob([csv], {type:"text/csv"});
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  const blob = new Blob([csv],{type:"text/csv"});
+  const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=filename; a.click();
   URL.revokeObjectURL(a.href);
 }
 function exportCSV(){
   if (tab==="summary" && lastSummary){
     const rows = [["Date","Employee ID","Name","Time In","Time Out","Production h","Lunch h","Break h","Bio h","Locker h","Alerts"]];
     lastSummary.rows.forEach(e=>rows.push([lastSummary.date,e.employeeId,e.employeeName,e.timeIn,e.timeOut,e.productionHours,e.lunchHours,e.breakHours,e.bioHours,e.lockerHours,e.alerts.join("; ")]));
-    downloadCSV("summary_"+lastSummary.date+".csv", rows);
+    downloadCSV("summary_"+lastSummary.date+".csv",rows);
   } else if (tab==="stats" && lastStats){
     const rows = [["Month","Employee ID","Name","Shifts","Avg production h","Avg non-prod h","Target hit %","Total production h"]];
     lastStats.rows.forEach(e=>rows.push([lastStats.month,e.employeeId,e.employeeName,e.shifts,e.avgProductionHours,e.avgNonProductionHours,e.targetHitRate,e.totalProductionHours]));
-    downloadCSV("stats_"+lastStats.month+".csv", rows);
+    downloadCSV("stats_"+lastStats.month+".csv",rows);
   }
 }
 
-/* ─── Boot ────────────────────────────────────────────────────────────── */
+/* ── Boot ── */
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
 if (CONFIG.API_URL.startsWith("PASTE")){
   root.innerHTML = `<div class="empty"><b>Setup needed:</b> paste your Apps Script URL into CONFIG.API_URL.</div>`;
