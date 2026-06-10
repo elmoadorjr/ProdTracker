@@ -393,9 +393,15 @@ function restoreSnapshot(id){
   return true;
 }
 const liveProdMs = () => prodBaseMs + (prodAnchor ? Date.now() - prodAnchor.getTime() : 0);
+/* Show H:MM:SS while under 1 hour (so the counter visibly ticks from second zero),
+   then switch to H:MM once production is established. */
 const fmtHM = ms => {
-  const m = Math.max(0, Math.round(ms/60000));
-  return Math.floor(m/60) + ":" + pad(m%60);
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h === 0) return m + ":" + pad(s);          // 0:39, 1:02, 59:59
+  return h + ":" + pad(m) + ":" + pad(s);        // 1:00:00, 6:45:12
 };
 
 const $ = s => document.querySelector(s);
@@ -468,7 +474,10 @@ function updateRing(){
   const targetMs = targets.minProductionHours * 3600000;
   const prod = liveProdMs();
   const pct = Math.min(1, prod / targetMs);
-  const offset = ARC_TOTAL - (pct * ARC_TOTAL);
+  // Minimum arc of 1% (≈5px) so the ring is always visibly present from second zero
+  const MIN_PCT = 0.01;
+  const drawPct = prod > 0 ? Math.max(MIN_PCT, pct) : 0;
+  const offset = ARC_TOTAL - (drawPct * ARC_TOTAL);
   fill.style.strokeDashoffset = offset;
   const met = prod >= targetMs;
   fill.className = "ring-fill " + (met ? "met" : (RING_CLASS[state] || "working"));
@@ -873,7 +882,7 @@ function render(){
       </div>
       ${showRing ? `
       <div class="ring-prod-label" id="prodLabelWrap">
-        <span id="prodNow">0:00</span> / ${targets.minProductionHours}:00 production
+        <span id="prodNow">0:00</span> / ${fmtHM(targets.minProductionHours * 3600000)} production
       </div>
       <div class="prod-hint" id="prodHint"></div>
       ${schedule.length ? `<div class="sched-line">Schedule: ${schedule.map(w=>`${w.type==="LUNCH"?"Lunch":"Break"} ${w.start}–${w.end}`).join(" · ")}</div>` : ""}
@@ -1101,7 +1110,13 @@ async function resolveEmployee(id){
   updateSyncBadge();
 }
 
-const fmtHrs = h => Math.floor(h) + ":" + pad(Math.round((h - Math.floor(h)) * 60));
+/* fmtHrs: used for completed-shift hours (always H:MM since those are always ≥minutes) */
+const fmtHrs = h => {
+  const totalSec = Math.max(0, Math.round(h * 3600));
+  const hh = Math.floor(totalSec / 3600);
+  const mm = Math.floor((totalSec % 3600) / 60);
+  return hh + ":" + pad(mm);
+};
 function btn(eventType, extraClass){
   return `<button class="action a-${eventType} ${extraClass||""}" data-ev="${eventType}">${LABELS[eventType]}</button>`;
 }
