@@ -337,6 +337,7 @@ const STATE_FROM_EVENT = {
 const fmtSince = iso => iso ? new Date(iso).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "—";
 const fmtMin = m => m==null?"":m>=60?Math.floor(m/60)+"h "+(String(m%60).padStart(2,"0"))+"m":m+"m";
 let liveTickHandle = null;
+let autoRefreshHandle = null;
 function startLiveTick(){
   clearInterval(liveTickHandle);
   liveTickHandle = setInterval(()=>{
@@ -345,6 +346,8 @@ function startLiveTick(){
       cell.textContent = fmtMin(m);
     });
   }, 10000);
+  clearInterval(autoRefreshHandle);
+  autoRefreshHandle = setInterval(load, 30000);
 }
 const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -465,7 +468,7 @@ async function load(){
   document.getElementById("datePick").style.display = usesDate?"":"none";
   document.getElementById("monthPick").style.display = (tab==="stats")?"":"none";
   document.getElementById("exportBtn").style.display = (tab==="summary"||tab==="stats")?"":"none";
-  if (tab !== "live"){ clearInterval(liveTickHandle); document.getElementById("heatStrip").style.display = "none"; }
+  if (tab !== "live"){ clearInterval(liveTickHandle); clearInterval(autoRefreshHandle); document.getElementById("heatStrip").style.display = "none"; }
   if (btn){ btn.disabled=true; btn.textContent="Loading…"; }
   try{
     if (tab==="live"){ lastLive = await api({action:"team"}); renderLive(lastLive); }

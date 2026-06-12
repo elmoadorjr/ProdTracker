@@ -3,7 +3,7 @@
    Network calls to the Apps Script API are NEVER cached (always live);
    offline event queuing is handled in the page via localStorage. */
 
-const CACHE = "tt-shell-v2";
+const CACHE = "tt-shell-v3";
 
 // Core files — install fails loudly if these are missing.
 const CORE = ["./", "./index.html", "./supervisor.html", "./manifest.json"];

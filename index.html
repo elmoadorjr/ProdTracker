@@ -805,6 +805,8 @@ function startTimer(){
     }
     updateRing();
     updateTimeline();
+    const statEl = document.getElementById("liveStatProd");
+    if (statEl) statEl.textContent = fmtHM(liveProdMs());
   };
   tick();
   timerHandle = setInterval(tick, 1000);
@@ -980,7 +982,6 @@ async function openStats(){
 }
 
 function renderStats(){
-  clearInterval(timerHandle);
   const days = (weekData && weekData.days) || [];
   const targetH = (weekData && weekData.targetHours) || targets.minProductionHours;
   const tabs = `
@@ -1011,7 +1012,7 @@ function renderStats(){
         <div class="shift-card" style="border-color:rgba(0,201,122,.3)">
           <div class="sc-top">
             <div class="sc-date">Live shift<small>${fmtClock(shiftStart)} → now</small></div>
-            <div class="sc-prod ${liveProd >= targetH*3600000 ? 'met' : ''}">${fmtHM(liveProd)}</div>
+            <div class="sc-prod ${liveProd >= targetH*3600000 ? 'met' : ''}" id="liveStatProd">${fmtHM(liveProd)}</div>
           </div>
           <div class="sc-bar"><i class="${livePct >= 100 ? 'met' : ''}" style="width:${livePct.toFixed(1)}%"></i></div>
           <div class="timeline-bar shift-tl" style="height:10px">${
@@ -1049,6 +1050,7 @@ function renderStats(){
   });
   const back = $("#backBtn");
   if (back) back.addEventListener("click", () => { view = "main"; render(); });
+  startTimer();
 }
 
 function shiftCardHtml(d, targetH, isToday){
