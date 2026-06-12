@@ -3,7 +3,7 @@
    Network calls to the Apps Script API are NEVER cached (always live);
    offline event queuing is handled in the page via localStorage. */
 
-const CACHE = "tt-shell-v3";
+const CACHE = "tt-shell-v4";
 
 // Core files — install fails loudly if these are missing.
 const CORE = ["./", "./index.html", "./supervisor.html", "./manifest.json"];
@@ -31,7 +31,7 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
 
   // Never cache the API — always go to the network (the app queues offline itself).
-  if (url.hostname.includes("script.google.com")) return;
+  if (url.hostname.includes("script.google.com") || url.hostname.includes("supabase.co")) return;
 
   // App shell: cache-first, fall back to network, update cache in the background.
   if (e.request.method === "GET" && url.origin === self.location.origin) {
