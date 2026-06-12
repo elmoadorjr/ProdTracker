@@ -318,6 +318,21 @@ const _localDate = _now.getFullYear() + "-" + _pad(_now.getMonth()+1) + "-" + _p
 const _localMonth = _now.getFullYear() + "-" + _pad(_now.getMonth()+1);
 let pin = sessionStorage.getItem("tt_pin") || "";
 let tab = "live";
+
+// Refresh date/month pickers when the page becomes visible again after midnight
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  const n = new Date();
+  const today = n.getFullYear()+"-"+_pad(n.getMonth()+1)+"-"+_pad(n.getDate());
+  const month = n.getFullYear()+"-"+_pad(n.getMonth()+1);
+  if (today !== summaryDate || month !== statsMonth){
+    summaryDate = today; statsMonth = month;
+    const dp = document.getElementById("datePick");
+    const mp = document.getElementById("monthPick");
+    if (dp) dp.value = today;
+    if (mp) mp.value = month;
+  }
+});
 let summaryDate = _localDate;
 let statsMonth = _localMonth;
 let lastLive = null, lastSummary = null, lastReconcile = null, lastStats = null;
@@ -338,6 +353,7 @@ const fmtSince = iso => iso ? new Date(iso).toLocaleTimeString([], {hour:"2-digi
 const fmtMin = m => m==null?"":m>=60?Math.floor(m/60)+"h "+(String(m%60).padStart(2,"0"))+"m":m+"m";
 let liveTickHandle = null;
 let autoRefreshHandle = null;
+let _loadInFlight = false;
 function startLiveTick(){
   clearInterval(liveTickHandle);
   liveTickHandle = setInterval(()=>{
@@ -459,6 +475,8 @@ function renderShell(){
 }
 
 async function load(){
+  if (_loadInFlight) return;
+  _loadInFlight = true;
   const btn = document.getElementById("refreshBtn");
   ["Live","Summary","Reconcile","Stats","Fix","Pins","Directory"].forEach(n=>{
     const el = document.getElementById("tab"+n);
@@ -484,6 +502,7 @@ async function load(){
     if (e.message!=="pin" && document.getElementById("content"))
       document.getElementById("content").innerHTML = `<div class="empty">Couldn't load: ${esc(e.message)}.</div>`;
   }
+  _loadInFlight = false;
   if (document.getElementById("refreshBtn")){ btn.disabled=false; btn.textContent="↻ Refresh"; }
 }
 
@@ -557,7 +576,7 @@ function renderSummary(data){
       const prodCell = `<b style="color:${met?'var(--working)':(e.open?'inherit':'var(--alert)')}">${e.productionHours}h${met?' ✓':''}</b>`;
       return `<tr class="${e.alerts.length?'flagged':''}">
         <td><b>${esc(e.employeeName)}</b> <span class="muted" style="font-size:11px">${esc(e.employeeId)}</span></td>
-        <td>${e.timeIn} → ${e.timeOut}${e.open?' <span class="muted">(open)</span>':''}</td>
+        <td>${esc(e.timeIn)} → ${esc(e.timeOut)}${e.open?' <span class="muted">(open)</span>':''}</td>
         <td class="num">${prodCell}</td>
         <td class="num">${e.lunchHours}h</td>
         <td class="num">${e.breakHours}h</td>
@@ -713,13 +732,14 @@ async function renderPins(){
     if (r.ok && r.pins) serverPins = r.pins;
   }catch(_){}
 
+  // Keep pins in memory only — never expose them in DOM attributes
+  const pinMap = serverPins;
   const rows = emps.map(e=>{
-    const pinVal = serverPins[e.id] || "";
-    const set = !!pinVal;
+    const set = !!(pinMap[e.id]);
     return `<tr>
       <td><b>${esc(e.name)}</b></td>
       <td class="muted" style="font-size:12px">${esc(e.id)}</td>
-      <td class="pin-val hidden-pin" id="pin-cell-${esc(e.id)}" data-pin="${set?esc(pinVal):''}" title="${set?'Click to reveal':'Not set'}">
+      <td class="pin-val hidden-pin" id="pin-cell-${esc(e.id)}" data-empid="${esc(e.id)}" title="${set?'Click to reveal':'Not set'}">
         ${set?"••••":'<span style="color:var(--muted);font-size:12px;font-weight:500;letter-spacing:0">Not set</span>'}
       </td>
       <td>
@@ -741,7 +761,7 @@ async function renderPins(){
 
   document.querySelectorAll(".pin-val.hidden-pin").forEach(cell => {
     cell.addEventListener("click", ()=>{
-      const p = cell.dataset.pin;
+      const p = pinMap[cell.dataset.empid];
       if (!p) return;
       cell.textContent = p;
       cell.classList.remove("hidden-pin"); cell.classList.add("revealed");
@@ -749,7 +769,7 @@ async function renderPins(){
   });
   document.getElementById("revealAllBtn").addEventListener("click", ()=>{
     document.querySelectorAll(".pin-val.hidden-pin").forEach(cell=>{
-      const p = cell.dataset.pin;
+      const p = pinMap[cell.dataset.empid];
       if (p){ cell.textContent=p; cell.classList.remove("hidden-pin"); cell.classList.add("revealed"); }
     });
   });

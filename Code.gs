@@ -56,6 +56,13 @@ var CATEGORIES = {
   LOCKER: ['LOCKER_START', 'LOCKER_END']
 };
 
+// Keys safe to send to client browsers (excludes credentials and secrets)
+var CLIENT_SAFE_CONFIG_KEYS = [
+  'SHIFT_LENGTH_HOURS', 'MIN_PRODUCTION_HOURS',
+  'MAX_BREAK_MINUTES', 'MAX_LUNCH_MINUTES', 'MAX_BIO_MINUTES', 'MAX_LOCKER_MINUTES',
+  'ALERT_BREAK_MINUTES', 'ALERT_LUNCH_MINUTES', 'ALERT_BIO_MINUTES', 'ALERT_LOCKER_MINUTES'
+];
+
 var CONFIG_DEFAULTS = {
   SUPERVISOR_PIN: '1234',        // change this in the Config sheet!
   MIN_PRODUCTION_HOURS: 7,       // biometric minimum presence in prod room
@@ -224,10 +231,12 @@ function logEvent(body) {
     };
   }
 
-  // Timestamp: trust the client's clock for offline-queued events (so the
-  // moment of the tap is preserved), but never accept a future time.
+  // Timestamp: trust the client's clock for offline-queued events so the
+  // moment of the tap is preserved. Clamp both ends: reject future times
+  // (>1 min ahead) and times more than 24 h in the past (wrong device clock).
   var ts = body.clientTimestamp ? new Date(body.clientTimestamp) : new Date();
-  if (isNaN(ts.getTime()) || ts.getTime() > Date.now() + 60000) ts = new Date();
+  var now = Date.now();
+  if (isNaN(ts.getTime()) || ts.getTime() > now + 60000 || ts.getTime() < now - 86400000) ts = new Date();
 
   sheet.appendRow([eventId, ts, employeeId, employee.name, eventType, body.notes || '']);
 
@@ -290,6 +299,12 @@ function getConfig() {
     if (r[0]) cfg[String(r[0])] = r[1];
   });
   return cfg;
+}
+
+function clientSafeConfig(cfg) {
+  var safe = {};
+  CLIENT_SAFE_CONFIG_KEYS.forEach(function(k){ if (k in cfg) safe[k] = cfg[k]; });
+  return safe;
 }
 
 function requirePin(pin) {
@@ -459,7 +474,7 @@ function getTeamStatus() {
   });
   return {
     ok: true, team: team, generatedAt: nowDate.toISOString(),
-    targetHours: Number(cfg.MIN_PRODUCTION_HOURS), config: cfg,
+    targetHours: Number(cfg.MIN_PRODUCTION_HOURS), config: clientSafeConfig(cfg),
     floor: {
       onFloor: team.filter(function (e) { return e.state === 'WORKING'; }).length,
       offFloor: team.filter(function (e) { return ['BREAK','LUNCH','BIO','LOCKER'].indexOf(e.state) >= 0; }).length,
@@ -917,14 +932,23 @@ function archiveOldEvents() {
   });
   if (!archive.length) return;
 
+  // 1. Write to archive FIRST — if this throws, live sheet is untouched.
   var tz = Session.getScriptTimeZone();
   var name = 'Archive_' + Utilities.formatDate(cutoff, tz, 'yyyy_MM');
   var arch = ss.getSheetByName(name) || ss.insertSheet(name);
   if (arch.getLastRow() === 0) arch.appendRow(['Event ID', 'Timestamp', 'Employee ID', 'Employee Name', 'Action', 'Notes']);
   arch.getRange(arch.getLastRow() + 1, 1, archive.length, 6).setValues(archive);
 
-  sheet.getRange(2, 1, last - 1, 6).clearContent();
-  if (keep.length) sheet.getRange(2, 1, keep.length, 6).setValues(keep);
+  // 2. Overwrite live sheet in-place — write keep rows first, THEN delete the
+  //    now-surplus rows at the bottom. Avoids the old clearContent+setValues
+  //    pattern which could leave the sheet empty if setValues threw mid-way.
+  var dataRowCount = last - 1;
+  if (keep.length) {
+    sheet.getRange(2, 1, keep.length, 6).setValues(keep);
+    if (dataRowCount > keep.length) sheet.deleteRows(keep.length + 2, dataRowCount - keep.length);
+  } else {
+    sheet.deleteRows(2, dataRowCount);
+  }
 }
 
 // ===========================================================================
@@ -984,12 +1008,15 @@ function setAgentPin(body) {
   var key = 'AGENT_PIN_' + employeeId;
   var existing = String(cfg[key] || '');
 
-  // Allow set if: no existing PIN, or correct old PIN provided, or supervisor PIN provided
-  var supPin = String(getConfig().SUPERVISOR_PIN);
+  var supPin = String(cfg.SUPERVISOR_PIN || '');
   var oldPin = String(body.oldPin || '');
   var supPinProvided = body.supervisorPin && String(body.supervisorPin) === supPin;
 
-  if (existing && oldPin !== existing && !supPinProvided) {
+  if (!existing) {
+    // First-time PIN set requires supervisor approval so any outsider who
+    // knows (or guesses) an employee ID cannot claim that employee's credential.
+    if (!supPinProvided) return { ok: false, error: 'Supervisor PIN required to set initial agent PIN', needsSupervisorPin: true };
+  } else if (oldPin !== existing && !supPinProvided) {
     return { ok: false, error: 'Old PIN required to change PIN' };
   }
 

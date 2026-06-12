@@ -444,18 +444,18 @@ async function postEvent(ev){
 async function flushQueue(){
   if (flushing || !navigator.onLine) return;
   flushing = true;
-  let q = getQueue();
-  while (q.length){
+  while (true){
+    const q = getQueue(); // re-read each iteration so concurrent enqueues aren't lost
+    if (!q.length) break;
     try{
       const r = await postEvent(q[0]);
-      if (r.ok){ q.shift(); }
-      else if (r.permanent || /not allowed|Unknown employee|Invalid event|PIN/i.test(r.error||"")){
-        // The server will never accept this event — drop it and tell the user.
-        q.shift();
-        toast("1 tap couldn't sync: " + (r.error || "rejected"), true);
-      }
-      else break; // transient server error — retry later
-      setQueue(q);
+      if (r.ok || r.permanent || /not allowed|Unknown employee|Invalid event|PIN/i.test(r.error||"")){
+        if (!r.ok) toast("1 tap couldn't sync: " + (r.error || "rejected"), true);
+        // Remove by eventId so a concurrently-added item at a different index is preserved
+        const fresh = getQueue();
+        const idx = fresh.findIndex(e => e.eventId === q[0].eventId);
+        if (idx !== -1){ fresh.splice(idx, 1); setQueue(fresh); }
+      } else break; // transient server error — retry later
     }catch(_){ break; } // network error — retry later
   }
   flushing = false;
@@ -666,13 +666,15 @@ function openPinGate(opts){
 
 /* Register a freshly chosen PIN with the server (so it works on every device
    and shows up on the supervisor's PINs tab). */
-async function registerPin(pinValue){
+async function registerPin(pinValue, supervisorPin){
+  const body = { action:"setAgentPin", employeeId: employee.id, pin: pinValue };
+  if (supervisorPin) body.supervisorPin = supervisorPin;
   const res = await fetch(CONFIG.API_URL, {
     method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
-    body: JSON.stringify({ action:"setAgentPin", employeeId: employee.id, pin: pinValue })
+    body: JSON.stringify(body)
   });
   const r = await res.json();
-  if (!r.ok) throw new Error(r.error || "Couldn't save PIN");
+  if (!r.ok) throw Object.assign(new Error(r.error || "Couldn't save PIN"), r);
   return true;
 }
 
@@ -703,7 +705,21 @@ async function doAction(eventType, gateError){
         pinSetOnServer = true;
         performAction("TIME_IN", p);
       }catch(err){
-        toast(String(err.message || "Couldn't save PIN"), true);
+        if (err.needsSupervisorPin){
+          // Server requires supervisor approval for first-time PIN — ask supervisor to verify
+          openPinGate({ mode:"enter", error: "Have your supervisor enter their PIN to authorise your account.",
+            onPin: async supPin => {
+              try{
+                await registerPin(p, supPin);
+                setLocalPin(employee.id, p);
+                pinSetOnServer = true;
+                performAction("TIME_IN", p);
+              }catch(err2){ toast(String(err2.message || "Couldn't save PIN"), true); }
+            }
+          });
+        } else {
+          toast(String(err.message || "Couldn't save PIN"), true);
+        }
       }
     }});
   }
@@ -1124,7 +1140,7 @@ async function identify(){
       <h1>Who's clocking in?</h1>
       <p>Use your personal link to skip this step.</p>
       <select id="empSelect">
-        ${list.map(e=>`<option value="${e.id}">${e.name} (${e.id})</option>`).join("")}
+        ${list.map(e=>`<option value="${esc(e.id)}">${esc(e.name)} (${esc(e.id)})</option>`).join("")}
       </select>
       <button id="goBtn">Continue</button>
     </div>`;
